@@ -1,0 +1,16 @@
+{
+    email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+    encode zstd gzip
+
+    # Pass real client info to ChurchCRM
+    header {
+        X-Forwarded-Proto "https"
+        X-Forwarded-Host "{host}"
+        X-Forwarded-For "{remote_host}"
+    }
+
+    reverse_proxy churchcrm:80
+}
