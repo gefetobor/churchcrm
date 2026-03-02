@@ -21,7 +21,20 @@ abstract class BaseEmail
     public function __construct(array $toAddresses)
     {
         $this->setConnection();
-        $this->mail->setFrom(ChurchMetaData::getChurchEmail(), ChurchMetaData::getChurchName());
+        $fromEmail = trim((string) ChurchMetaData::getChurchEmail());
+        if (!filter_var($fromEmail, FILTER_VALIDATE_EMAIL)) {
+            $smtpUser = trim((string) SystemConfig::getValue('sSMTPUser'));
+            if (filter_var($smtpUser, FILTER_VALIDATE_EMAIL)) {
+                $fromEmail = $smtpUser;
+            } else {
+                $fromEmail = 'no-reply@localhost';
+            }
+        }
+        $fromName = trim((string) ChurchMetaData::getChurchName());
+        if ($fromName === '') {
+            $fromName = 'ChurchCRM';
+        }
+        $this->mail->setFrom($fromEmail, $fromName, false);
         foreach ($toAddresses as $email) {
             $this->mail->addAddress($email);
         }
@@ -36,7 +49,16 @@ abstract class BaseEmail
         $this->mail->IsSMTP();
         $this->mail->CharSet = 'UTF-8';
         $this->mail->Timeout = SystemConfig::getIntValue('iSMTPTimeout');
-        $this->mail->Host = SystemConfig::getValue('sSMTPHost');
+        $smtpHost = SystemConfig::getValue('sSMTPHost');
+        if (strpos($smtpHost, ':') !== false) {
+            [$host, $port] = explode(':', $smtpHost, 2);
+            $this->mail->Host = $host;
+            if ($port !== '') {
+                $this->mail->Port = (int) $port;
+            }
+        } else {
+            $this->mail->Host = $smtpHost;
+        }
         $this->mail->SMTPAutoTLS = SystemConfig::getBooleanValue('bPHPMailerAutoTLS');
         $this->mail->SMTPSecure = SystemConfig::getValue('sPHPMailerSMTPSecure');
         if (SystemConfig::getBooleanValue('bSMTPAuth')) {

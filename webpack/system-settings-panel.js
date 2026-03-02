@@ -127,14 +127,14 @@ import "../src/skin/scss/system-settings-panel.scss";
                         <input type="password" class="form-control setting-input" 
                                id="${setting.name}" name="${setting.name}"
                                data-type="password"
-                               value="${value || ""}"
+                               value=""
                                autocomplete="new-password">
                         ${setting.tooltip ? `<small class="form-text text-muted">${setting.tooltip}</small>` : ""}
                     </div>
                 `;
       },
       getValue: function (el) {
-        return el.value;
+        return el.value === "" ? null : el.value;
       },
     },
   };
@@ -420,7 +420,10 @@ import "../src/skin/scss/system-settings-panel.scss";
         const type = input.dataset.type;
         const renderer = SettingTypes[type];
         if (renderer) {
-          settings[input.name] = renderer.getValue(input);
+          const value = renderer.getValue(input);
+          if (value !== null) {
+            settings[input.name] = value;
+          }
         }
       });
 

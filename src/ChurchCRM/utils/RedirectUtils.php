@@ -13,11 +13,12 @@ class RedirectUtils
      */
     public static function redirect(string $sRelativeURL): void
     {
+        $rootPath = SystemURLs::getRootPath() ?? '';
         if (substr($sRelativeURL, 0, 1) != '/') {
             $sRelativeURL = '/' . $sRelativeURL;
         }
-        if (substr($sRelativeURL, 0, strlen(SystemURLs::getRootPath())) != SystemURLs::getRootPath()) {
-            $finalLocation = SystemURLs::getRootPath() . $sRelativeURL;
+        if ($rootPath !== '' && substr($sRelativeURL, 0, strlen($rootPath)) != $rootPath) {
+            $finalLocation = $rootPath . $sRelativeURL;
         } else {
             $finalLocation = $sRelativeURL;
         }

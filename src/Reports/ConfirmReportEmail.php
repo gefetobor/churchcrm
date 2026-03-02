@@ -28,7 +28,7 @@ class EmailPdfConfirmReport extends ChurchInfoReport
         $this->SetAutoPageBreak(false);
     }
 
-    public function startNewPage($fam_ID, $fam_Name, $fam_Address1, $fam_Address2, string $fam_City, string $fam_State, string $fam_Zip, $fam_Country): float
+    public function startNewPage($fam_ID, $fam_Name, $fam_Address1, $fam_Address2, $fam_City, $fam_State, $fam_Zip, $fam_Country): float
     {
         $curY = $this->startLetterPage($fam_ID, $fam_Name, $fam_Address1, $fam_Address2, $fam_City, $fam_State, $fam_Zip, $fam_Country);
         $curY += 2 * SystemConfig::getValue('incrementY');
@@ -109,17 +109,17 @@ foreach ($families as $family) {
     $pdf = new EmailPdfConfirmReport();
 
     $fam_ID = $family->getId();
-    $fam_Name = $family->getName();
-    $fam_Address1 = $family->getAddress1();
-    $fam_Address2 = $family->getAddress2();
-    $fam_City = $family->getCity();
-    $fam_State = $family->getState();
-    $fam_Zip = $family->getZip();
-    $fam_Country = $family->getCountry();
-    $fam_HomePhone = $family->getHomePhone();
+    $fam_Name = (string) ($family->getName() ?? '');
+    $fam_Address1 = (string) ($family->getAddress1() ?? '');
+    $fam_Address2 = (string) ($family->getAddress2() ?? '');
+    $fam_City = (string) ($family->getCity() ?? '');
+    $fam_State = (string) ($family->getState() ?? '');
+    $fam_Zip = (string) ($family->getZip() ?? '');
+    $fam_Country = (string) ($family->getCountry() ?? '');
+    $fam_HomePhone = (string) ($family->getHomePhone() ?? '');
     $fam_SendNewsLetter = $family->getSendNewsletter();
     $fam_WeddingDate = $family->getWeddingDate();
-    $fam_Email = $family->getEmail();
+    $fam_Email = (string) ($family->getEmail() ?? '');
 
     // Get unique family emails
     $emaillist = $family->getEmails();
@@ -356,7 +356,7 @@ foreach ($families as $family) {
 
         $subject = $fam_Name . ' Family Information Review';
 
-        if ($_GET['updated']) {
+        if (!empty($_GET['updated'])) {
             $subject = $subject . ' ** Updated **';
         }
 
@@ -373,7 +373,7 @@ foreach ($families as $family) {
     }
 }
 
-if ($_GET['familyId']) {
+if (!empty($_GET['familyId'])) {
     RedirectUtils::redirect('v2/family/' . $_GET['familyId'] . '?PDFEmailed=' . $familiesEmailed);
 } else {
     RedirectUtils::redirect(SystemURLs::getRootPath() . '/v2/people/verify?AllPDFsEmailed=' . $familiesEmailed);

@@ -1,8 +1,9 @@
 import * as React from "react";
 import { Modal } from "react-bootstrap";
-import type { MultiValue, SingleValue } from "react-select";
+import type { ActionMeta, MultiValue, SingleValue } from "react-select";
 import type Calendar from "../../interfaces/Calendar";
 import type CRMEvent from "../../interfaces/CRMEvent";
+import type EventLocation from "../../interfaces/EventLocation";
 import type EventType from "../../interfaces/EventType";
 import CRMRoot from "../../window-context-service.jsx";
 import EventPropertiesEditor from "./EventPropertiesEditor";
@@ -24,6 +25,7 @@ interface EventFormState {
   event?: CRMEvent;
   isEditMode: boolean;
   calendars: Array<Calendar>;
+  locations: Array<EventLocation>;
   eventTypes: Array<EventType>;
 }
 
@@ -34,12 +36,14 @@ class ExistingEvent extends React.Component<EventFormProps, EventFormState> {
     this.state = {
       isEditMode: false,
       calendars: [],
+      locations: [],
       eventTypes: [],
     };
     if (this.props.eventId === 0) {
       this.state = {
         isEditMode: true,
         calendars: [],
+        locations: [],
         eventTypes: [],
         event: {
           Id: 0,
@@ -60,6 +64,7 @@ class ExistingEvent extends React.Component<EventFormProps, EventFormState> {
     this.setReadOnlyMode = this.setReadOnlyMode.bind(this);
     this.handleInputChange = this.handleInputChange.bind(this);
     this.updatePinnedCalendar = this.updatePinnedCalendar.bind(this);
+    this.updateEventLocation = this.updateEventLocation.bind(this);
     this.handleStartDateChange = this.handleStartDateChange.bind(this);
     this.handleEndDateChange = this.handleEndDateChange.bind(this);
     this.updateEventType = this.updateEventType.bind(this);
@@ -101,6 +106,14 @@ class ExistingEvent extends React.Component<EventFormProps, EventFormState> {
       .then((response) => response.json())
       .then((data) => {
         this.setState({ eventTypes: data.EventTypes });
+      });
+
+    fetch(`${CRMRoot}/api/events/locations`, {
+      credentials: "include",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        this.setState({ locations: data.Locations || [] });
       });
   }
 
@@ -156,6 +169,15 @@ class ExistingEvent extends React.Component<EventFormProps, EventFormState> {
         event: Object.assign({}, this.state.event, { Type: eventType }),
       });
     }
+  }
+
+  updateEventLocation(selectedOption: SingleValue<Option>, actionMeta: ActionMeta<Option>) {
+    void actionMeta;
+    this.setState({
+      event: Object.assign({}, this.state.event, {
+        LocationId: selectedOption ? selectedOption.value : null,
+      }),
+    });
   }
 
   isFormComplete(): boolean {
@@ -243,11 +265,13 @@ class ExistingEvent extends React.Component<EventFormProps, EventFormState> {
                 <EventPropertiesEditor
                   event={this.state.event}
                   calendars={this.state.calendars}
+                  locations={this.state.locations}
                   eventTypes={this.state.eventTypes}
                   changeHandler={this.handleInputChange}
                   handleStartDateChange={this.handleStartDateChange}
                   handleEndDateChange={this.handleEndDateChange}
                   pinnedCalendarChanged={this.updatePinnedCalendar}
+                  eventLocationChanged={this.updateEventLocation}
                   eventTypeChanged={this.updateEventType}
                 />
               </div>

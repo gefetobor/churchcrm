@@ -57,6 +57,7 @@
                 defaultValue="0"/>
         <column name="per_FriendDate" phpName="FriendDate" type="DATE"/>
         <column name="per_Flags" phpName="Flags" type="SMALLINT" size="9" required="true" defaultValue="0"/>
+        <column name="per_event_reminder_optout" phpName="EventReminderOptout" type="INTEGER" size="1" required="true" defaultValue="0"/>
         <column name="per_Facebook" phpName="Facebook" type="VARCHAR" size="50" Description="Facebook username" />
         <column name="per_Twitter" phpName="Twitter" type="VARCHAR" size="50" Description="Twitter username" />
         <column name="per_LinkedIn" phpName="LinkedIn" type="VARCHAR" size="50" Description="LinkedIn name" />
@@ -434,6 +435,10 @@
         <column name="event_text" phpName="Text" type="LONGVARCHAR"/>
         <column name="event_start" phpName="Start" type="TIMESTAMP" required="true"/>
         <column name="event_end" phpName="End" type="TIMESTAMP" required="true"/>
+        <column name="event_created" phpName="Created" type="TIMESTAMP"/>
+        <column name="event_updated" phpName="Updated" type="TIMESTAMP"/>
+        <column name="event_send_reminders" phpName="SendReminders" type="INTEGER" size="1" required="true" defaultValue="0"/>
+        <column name="event_location_text" phpName="LocationText" type="VARCHAR" size="255"/>
         <column name="inactive" phpName="InActive" type="INTEGER" size="1" required="true" defaultValue="0"/>
         <column name="location_id" phpName="LocationId" type="INTEGER" required="true" defaultValue="0"/>
         <column name="primary_contact_person_id" phpName="PrimaryContactPersonId" type="INTEGER" required="true" defaultValue="0"/>
@@ -456,6 +461,88 @@
         </foreign-key>
         <index name="event_txt">
             <index-column name="event_text"/>
+        </index>
+        <vendor type="mysql">
+            <parameter name="Engine" value="InnoDB"/>
+        </vendor>
+    </table>
+
+    <table name="event_reminder_log" idMethod="native" phpName="EventReminderLog" description="Log of event reminder notifications">
+        <column name="erl_id" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+        <column name="erl_event_id" phpName="EventId" type="INTEGER" required="true"/>
+        <column name="erl_person_id" phpName="PersonId" type="INTEGER" required="true"/>
+        <column name="erl_type" phpName="Type" type="VARCHAR" size="32" required="true"/>
+        <column name="erl_trigger_at" phpName="TriggerAt" type="TIMESTAMP"/>
+        <column name="erl_status" phpName="Status" type="VARCHAR" size="16" required="true" defaultValue="pending"/>
+        <column name="erl_error" phpName="Error" type="LONGVARCHAR"/>
+        <column name="erl_sent_at" phpName="SentAt" type="TIMESTAMP"/>
+        <column name="erl_created_at" phpName="CreatedAt" type="TIMESTAMP" required="true"/>
+        <foreign-key foreignTable="events_event">
+            <reference local="erl_event_id" foreign="event_id"/>
+        </foreign-key>
+        <foreign-key foreignTable="person_per">
+            <reference local="erl_person_id" foreign="per_ID"/>
+        </foreign-key>
+        <unique name="uniq_event_person_type">
+            <unique-column name="erl_event_id"/>
+            <unique-column name="erl_person_id"/>
+            <unique-column name="erl_type"/>
+        </unique>
+        <index name="erl_event_id_idx">
+            <index-column name="erl_event_id"/>
+        </index>
+        <index name="erl_person_id_idx">
+            <index-column name="erl_person_id"/>
+        </index>
+        <vendor type="mysql">
+            <parameter name="Engine" value="InnoDB"/>
+        </vendor>
+    </table>
+
+    <table name="birthday_email_log" idMethod="native" phpName="BirthdayEmailLog" description="Log of birthday greeting emails">
+        <column name="bel_id" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+        <column name="bel_person_id" phpName="PersonId" type="INTEGER" required="true"/>
+        <column name="bel_year" phpName="Year" type="INTEGER" required="true"/>
+        <column name="bel_status" phpName="Status" type="VARCHAR" size="16" required="true" defaultValue="pending"/>
+        <column name="bel_error" phpName="Error" type="LONGVARCHAR"/>
+        <column name="bel_sent_at" phpName="SentAt" type="TIMESTAMP"/>
+        <column name="bel_created_at" phpName="CreatedAt" type="TIMESTAMP" required="true"/>
+        <foreign-key foreignTable="person_per">
+            <reference local="bel_person_id" foreign="per_ID"/>
+        </foreign-key>
+        <unique name="uniq_person_year">
+            <unique-column name="bel_person_id"/>
+            <unique-column name="bel_year"/>
+        </unique>
+        <index name="bel_person_id_idx">
+            <index-column name="bel_person_id"/>
+        </index>
+        <vendor type="mysql">
+            <parameter name="Engine" value="InnoDB"/>
+        </vendor>
+    </table>
+
+    <table name="first_timer_ft" idMethod="native" phpName="FirstTimer" description="First timer registrations">
+        <column name="ft_ID" phpName="Id" type="INTEGER" primaryKey="true" autoIncrement="true" required="true"/>
+        <column name="ft_FirstName" phpName="FirstName" type="VARCHAR" size="50" required="true"/>
+        <column name="ft_LastName" phpName="LastName" type="VARCHAR" size="50" required="true"/>
+        <column name="ft_Email" phpName="Email" type="VARCHAR" size="100" required="true"/>
+        <column name="ft_Phone" phpName="Phone" type="VARCHAR" size="30"/>
+        <column name="ft_Address" phpName="Address" type="VARCHAR" size="255"/>
+        <column name="ft_Postcode" phpName="Postcode" type="VARCHAR" size="50"/>
+        <column name="ft_BirthDate" phpName="BirthDate" type="DATE"/>
+        <column name="ft_CreatedAt" phpName="CreatedAt" type="TIMESTAMP" required="true"/>
+        <column name="ft_UpdatedAt" phpName="UpdatedAt" type="TIMESTAMP"/>
+        <column name="ft_PromotedAt" phpName="PromotedAt" type="TIMESTAMP"/>
+        <column name="ft_PromotedPersonId" phpName="PromotedPersonId" type="INTEGER"/>
+        <foreign-key foreignTable="person_per">
+            <reference local="ft_PromotedPersonId" foreign="per_ID"/>
+        </foreign-key>
+        <index name="ft_email_idx">
+            <index-column name="ft_Email"/>
+        </index>
+        <index name="ft_promoted_idx">
+            <index-column name="ft_PromotedPersonId"/>
         </index>
         <vendor type="mysql">
             <parameter name="Engine" value="InnoDB"/>

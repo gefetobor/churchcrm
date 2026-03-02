@@ -296,6 +296,28 @@ function renderPluginCard(array $plugin, string $rootPath, string $nonce): void 
 
 <script nonce="<?= SystemURLs::getCSPNonce() ?>">
 $(document).ready(function() {
+    // Ensure card collapse works even if AdminLTE widget init is unavailable.
+    $('.card[data-plugin-id] .btn-tool[data-card-widget="collapse"]').on('click', function(e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const btn = $(this);
+        const card = btn.closest('.card[data-plugin-id]');
+        const cardBody = card.children('.card-body');
+        const icon = btn.find('i');
+        const isCollapsed = card.hasClass('collapsed-card') || !cardBody.is(':visible');
+
+        if (isCollapsed) {
+            card.removeClass('collapsed-card');
+            cardBody.stop(true, true).slideDown(120);
+            icon.removeClass('fa-plus').addClass('fa-minus');
+        } else {
+            card.addClass('collapsed-card');
+            cardBody.stop(true, true).slideUp(120);
+            icon.removeClass('fa-minus').addClass('fa-plus');
+        }
+    });
+
     // Show plugin help modal
     $('.btn-plugin-help').on('click', function(e) {
         e.stopPropagation();
@@ -448,14 +470,13 @@ $(document).ready(function() {
         const btn = $(this);
         const pluginId = btn.data('plugin-id');
         const form = btn.closest('form');
-        
-        // Confirm reset
+
         if (!confirm(i18next.t('Are you sure you want to reset all settings for this plugin? This will clear all configured values.'))) {
             return;
         }
-        
+
         btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>' + i18next.t('Resetting...'));
-        
+
         $.ajax({
             url: window.CRM.root + '/plugins/api/plugins/' + pluginId + '/reset',
             method: 'POST',

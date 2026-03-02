@@ -5,6 +5,7 @@ require_once __DIR__ . '/Include/Functions.php';
 require_once __DIR__ . '/Include/QuillEditorHelper.php';
 
 use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\model\ChurchCRM\Event;
 use ChurchCRM\model\ChurchCRM\EventAudience;
@@ -14,6 +15,7 @@ use ChurchCRM\model\ChurchCRM\EventCountsQuery;
 use ChurchCRM\model\ChurchCRM\EventQuery;
 use ChurchCRM\model\ChurchCRM\EventTypeQuery;
 use ChurchCRM\model\ChurchCRM\GroupQuery;
+use ChurchCRM\Service\EventReminderService;
 use ChurchCRM\Utils\DateTimeUtils;
 use ChurchCRM\Utils\InputUtils;
 use ChurchCRM\Utils\LoggerUtils;
@@ -57,6 +59,9 @@ $iEventID = 0;
 $iTypeID = 0;
 $iErrors = 0;
 $iLinkedGroupId = 0;
+$bSendReminders = false;
+$bDateError = false;
+$sEventLocationText = '';
 
 if ($sAction === 'Create Event' && !empty($tyid)) {
     // User is coming from the event types screen and thus there
@@ -248,6 +253,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
     $sEventTitle = $sEventStartDate . '-' . $sTypeName;
     $sEventDesc = '';
     $sEventText = '';
+    $sEventLocationText = '';
     $iEventStatus = 0;
 } elseif ($sAction === 'Edit' && !empty($sOpp)) {
     $EventExists = 1;
@@ -260,14 +266,28 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
     if ($event === null) {
         $iErrors++;
         LoggerUtils::getAppLogger()->warning('Event not found: ' . $iEventID);
+        $sTypeName = '';
+        $sEventTitle = '';
+        $sEventDesc = '';
+        $sEventText = '';
+        $sEventLocationText = '';
+        $sEventStartDate = DateTimeUtils::getTodayDate();
+        $sEventEndDate = $sEventStartDate;
+        $iEventStartHour = 9;
+        $iEventStartMins = 0;
+        $iEventEndHour = 10;
+        $iEventEndMins = 0;
+        $iEventStatus = 0;
     } else {
         // Use Propel getters instead of extract() to avoid field name mismatches
         $iEventID = $event->getId();
         $iTypeID = $event->getType();
-        $sTypeName = $event->getEventType()->getName();
+        $eventType = $event->getEventType();
+        $sTypeName = $eventType ? $eventType->getName() : gettext('Unknown Event Type');
         $sEventTitle = $event->getTitle();
         $sEventDesc = $event->getDesc();
         $sEventText = $event->getText();
+        $sEventLocationText = method_exists($event, 'getLocationText') ? (string) $event->getLocationText() : '';
         
         // Parse start date/time
         $eventStart = $event->getStart();
@@ -298,6 +318,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
         }
         
         $iEventStatus = $event->getInActive();
+        $bSendReminders = (bool) $event->getSendReminders();
 
         // Get linked group (via EventAudience)
         $linkedGroups = $event->getGroups();
@@ -344,13 +365,21 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
         $sTypeName = $type_name;
     }
     $sEventText = $_POST['EventTextInput'];
-    if ($_POST['EventStatus'] === null) {
+    $sEventLocationText = InputUtils::legacyFilterInput($_POST['EventLocationText'] ?? '');
+    if (!isset($_POST['EventStatus'])) {
         $bStatusError = true;
         $iErrors++;
     }
     $sEventRange = $_POST['EventDateRange'];
-    $sEventStartDateTime = DateTime::createFromFormat('Y-m-d H:i a', explode(' - ', $sEventRange)[0]);
-    $sEventEndDateTime = DateTime::createFromFormat('Y-m-d H:i a', explode(' - ', $sEventRange)[1]);
+    $dateRangeParts = explode(' - ', (string) $sEventRange, 2);
+    $sEventStartDateTime = isset($dateRangeParts[0]) ? DateTime::createFromFormat('Y-m-d h:i A', trim($dateRangeParts[0])) : false;
+    $sEventEndDateTime = isset($dateRangeParts[1]) ? DateTime::createFromFormat('Y-m-d h:i A', trim($dateRangeParts[1])) : false;
+    if (!$sEventStartDateTime || !$sEventEndDateTime) {
+        $iErrors++;
+        $bDateError = true;
+        $sEventStartDateTime = new DateTime();
+        $sEventEndDateTime = (new DateTime())->modify('+1 hour');
+    }
     $sEventStart = $sEventStartDateTime->format('Y-m-d H:i');
     $sEventStartDate = $sEventStartDateTime->format('Y-m-d');
     $iEventStartHour = $sEventStartDateTime->format('H');
@@ -360,6 +389,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
     $iEventEndHour = $sEventEndDateTime->format('H');
     $iEventEndMins = $sEventEndDateTime->format('i');
     $iEventStatus = $_POST['EventStatus'];
+    $bSendReminders = isset($_POST['EventSendReminders']);
 
     $iNumCounts = $_POST['NumAttendCounts'];
     $nCnts = $iNumCounts;
@@ -390,13 +420,27 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
                 ->setTitle(InputUtils::legacyFilterInput($sEventTitle))
                 ->setDesc(InputUtils::sanitizeHTML($sEventDesc))
                 ->setText(InputUtils::sanitizeHTML($sEventText))
+                ->setLocationText(InputUtils::legacyFilterInput($sEventLocationText))
                 ->setStart(InputUtils::legacyFilterInput($sEventStart))
                 ->setEnd(InputUtils::legacyFilterInput($sEventEnd))
+                ->setCreated(new \DateTime())
+                ->setSendReminders($bSendReminders ? 1 : 0)
                 ->setInActive(InputUtils::legacyFilterInput($iEventStatus));
             $event->save();
             $event->reload();
 
             $iEventID = $event->getId();
+
+            if ($bSendReminders && SystemConfig::getBooleanValue('bEventReminderOnCreate')) {
+                try {
+                    (new EventReminderService())->sendImmediateForEvent($iEventID, 'created');
+                } catch (\Throwable $e) {
+                    LoggerUtils::getAppLogger()->warning('Failed to send immediate event notification', [
+                        'eventId' => $iEventID,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
             
             // Link group to event (for kiosk/check-in functionality)
             if ($iLinkedGroupId > 0) {
@@ -422,15 +466,34 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
             }
         } else {
             $event = EventQuery::create()->findOneById(InputUtils::legacyFilterInput($iEventID));
+            if ($event === null) {
+                $iErrors++;
+                LoggerUtils::getAppLogger()->warning('Unable to save event because target event was not found', ['eventId' => $iEventID]);
+                goto render_event_editor;
+            }
             $event
                 ->setType(InputUtils::legacyFilterInput($iTypeID))
                 ->setTitle(InputUtils::legacyFilterInput($sEventTitle))
                 ->setDesc(InputUtils::sanitizeHTML($sEventDesc))
                 ->setText(InputUtils::sanitizeHTML($sEventText))
+                ->setLocationText(InputUtils::legacyFilterInput($sEventLocationText))
                 ->setStart(InputUtils::legacyFilterInput($sEventStart))
                 ->setEnd(InputUtils::legacyFilterInput($sEventEnd))
+                ->setUpdated(new \DateTime())
+                ->setSendReminders($bSendReminders ? 1 : 0)
                 ->setInActive(InputUtils::legacyFilterInput($iEventStatus));
             $event->save();
+
+            if ($bSendReminders && SystemConfig::getBooleanValue('bEventReminderOnUpdate')) {
+                try {
+                    (new EventReminderService())->sendImmediateForEvent($iEventID, 'updated');
+                } catch (\Throwable $e) {
+                    LoggerUtils::getAppLogger()->warning('Failed to send immediate event update notification', [
+                        'eventId' => $iEventID,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
             
             // Update linked group (for kiosk/check-in functionality)
             // First, remove existing group links for this event
@@ -465,6 +528,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
         RedirectUtils::redirect('ListEvents.php');
     }
 }
+render_event_editor:
 ?>
 
 <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -555,11 +619,26 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
                     </td>
                 </tr>
                 <tr>
+                    <td class="LabelColumn"><?= gettext('Address') ?></td>
+                    <td colspan="3" class="TextColumn">
+                        <input type="text"
+                               name="EventLocationText"
+                               value="<?= InputUtils::escapeHTML($sEventLocationText) ?>"
+                               maxlength="255"
+                               class="form-control"
+                               placeholder="<?= gettext('Street, Postal Code, City, Country') ?>">
+                        <small class="form-text text-muted"><?= gettext('Optional event address shown in reminders and event details') ?></small>
+                    </td>
+                </tr>
+                <tr>
                     <td class="LabelColumn"><span class="text-danger">*</span><?= gettext('Date & Time') ?></td>
                     <td class="TextColumn" colspan="3">
                         <input type="text" name="EventDateRange" value=""
                                maxlength="10" id="EventDateRange" class="form-control" style="max-width: 400px;" required>
                         <small class="form-text text-muted"><?= gettext('Select start and end date/time') ?></small>
+                        <?php if ($bDateError): ?>
+                            <div class="text-danger mt-1"><?= gettext('Please select a valid date and time range.') ?></div>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <tr>
@@ -655,6 +734,16 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
                         </div>
                     </td>
                 </tr>
+                <tr>
+                    <td class="LabelColumn"><?= gettext('Event Reminders') ?></td>
+                    <td colspan="3" class="TextColumn">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input" id="EventSendReminders" name="EventSendReminders" value="1" <?= $bSendReminders ? 'checked' : '' ?>>
+                            <label class="custom-control-label" for="EventSendReminders"><?= gettext('Send reminder emails for this event') ?></label>
+                        </div>
+                        <small class="form-text text-muted"><?= gettext('Requires Event Reminders to be enabled in System Settings.') ?></small>
+                    </td>
+                </tr>
 
                 <tr>
                     <td></td>
@@ -720,4 +809,3 @@ $eventEnd = $sEventEndDate . ' ' . $iEventEndHour . ':' . $iEventEndMins;
 </script>
 
 <?php require_once __DIR__ . '/Include/Footer.php'; ?>
-

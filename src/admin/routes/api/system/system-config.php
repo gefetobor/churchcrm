@@ -23,7 +23,12 @@ function setConfigValueByNameAPI(Request $request, Response $response, array $ar
 {
     $configName = $args['configName'];
     $input = $request->getParsedBody();
-    SystemConfig::setValue($configName, $input['value']);
+    $value = $input['value'] ?? null;
+    $configItem = SystemConfig::getConfigItem($configName);
+    if ($configItem && $configItem->getType() === 'password' && ($value === null || $value === '')) {
+        return SlimUtils::renderJSON($response, ['value' => SystemConfig::getValue($configName)]);
+    }
+    SystemConfig::setValue($configName, $value);
 
     return SlimUtils::renderJSON($response, ['value' => SystemConfig::getValue($configName)]);
 }

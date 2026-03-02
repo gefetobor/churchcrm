@@ -124,12 +124,71 @@ CREATE TABLE `events_event` (
   `event_text` text,
   `event_start` datetime NOT NULL,
   `event_end` datetime NOT NULL,
+  `event_created` datetime DEFAULT NULL,
+  `event_updated` datetime DEFAULT NULL,
+  `event_send_reminders` tinyint(1) NOT NULL default '0',
+  `event_location_text` varchar(255) default NULL,
   `inactive` int(1) NOT NULL default '0',
   `location_id` INT DEFAULT NULL,
   `primary_contact_person_id` INT DEFAULT NULL,
   `secondary_contact_person_id` INT DEFAULT NULL,
   `event_url` text,
   PRIMARY KEY  (`event_id`)
+) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
+
+--
+-- Table structure for table `event_reminder_log`
+--
+
+CREATE TABLE `event_reminder_log` (
+  `erl_id` int(11) NOT NULL auto_increment,
+  `erl_event_id` int(11) NOT NULL,
+  `erl_person_id` int(11) NOT NULL,
+  `erl_type` varchar(32) NOT NULL,
+  `erl_trigger_at` datetime default NULL,
+  `erl_status` varchar(16) NOT NULL default 'pending',
+  `erl_error` text,
+  `erl_sent_at` datetime default NULL,
+  `erl_created_at` datetime NOT NULL,
+  PRIMARY KEY (`erl_id`),
+  UNIQUE KEY `uniq_event_person_type` (`erl_event_id`,`erl_person_id`,`erl_type`),
+  KEY `erl_event_id_idx` (`erl_event_id`),
+  KEY `erl_person_id_idx` (`erl_person_id`)
+) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
+
+CREATE TABLE `birthday_email_log` (
+  `bel_id` int(11) NOT NULL auto_increment,
+  `bel_person_id` int(11) NOT NULL,
+  `bel_year` int(4) NOT NULL,
+  `bel_status` varchar(16) NOT NULL default 'pending',
+  `bel_error` text,
+  `bel_sent_at` datetime default NULL,
+  `bel_created_at` datetime NOT NULL,
+  PRIMARY KEY (`bel_id`),
+  UNIQUE KEY `uniq_person_year` (`bel_person_id`,`bel_year`),
+  KEY `bel_person_id_idx` (`bel_person_id`)
+) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
+
+--
+-- Table structure for table `first_timer_ft`
+--
+
+CREATE TABLE `first_timer_ft` (
+  `ft_ID` int(11) NOT NULL auto_increment,
+  `ft_FirstName` varchar(50) NOT NULL,
+  `ft_LastName` varchar(50) NOT NULL,
+  `ft_Email` varchar(100) NOT NULL,
+  `ft_Phone` varchar(30) default NULL,
+  `ft_Address` varchar(255) default NULL,
+  `ft_Postcode` varchar(50) default NULL,
+  `ft_BirthDate` date default NULL,
+  `ft_CreatedAt` datetime NOT NULL,
+  `ft_UpdatedAt` datetime default NULL,
+  `ft_PromotedAt` datetime default NULL,
+  `ft_PromotedPersonId` int(11) default NULL,
+  PRIMARY KEY (`ft_ID`),
+  KEY `ft_email_idx` (`ft_Email`),
+  KEY `ft_promoted_idx` (`ft_PromotedPersonId`)
 ) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
 
 --
@@ -553,6 +612,7 @@ CREATE TABLE `person_per` (
   `per_EditedBy` smallint(5) unsigned default '0',
   `per_FriendDate` date default NULL,
   `per_Flags` mediumint(9) NOT NULL default '0',
+  `per_event_reminder_optout` tinyint(1) NOT NULL default '0',
   `per_Facebook` varchar(50) default NULL,
   `per_Twitter` varchar(50) default NULL,
   `per_LinkedIn` varchar(50) default NULL,

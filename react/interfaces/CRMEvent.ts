@@ -7,7 +7,8 @@ interface CRMEvent {
   Text?: string;
   Type?: number;
   Title?: string;
-  LocationId?: number;
+  LocationId?: number | null;
+  LocationText?: string | null;
   PrimaryContactPersonId?: number;
   SecondaryContactPersonId?: number;
   URL?: string;

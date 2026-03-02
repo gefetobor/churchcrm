@@ -9,6 +9,7 @@ use Monolog\Formatter\LineFormatter;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
 use Monolog\Logger;
+use Monolog\LogRecord;
 use Monolog\Processor\IntrospectionProcessor;
 use Monolog\Processor\PsrLogMessageProcessor;
 
@@ -66,7 +67,12 @@ class LoggerUtils
         if (self::$formatter === null) {
             // In production, use JSON for better log viewer compatibility (ELK, Splunk, Datadog)
             // In development, use text format for readability
-            $useJson = SystemConfig::getValue('sLogLevel') != Level::Debug->value;
+            try {
+                $useJson = SystemConfig::getValue('sLogLevel') != Level::Debug->value;
+            } catch (\Exception $e) {
+                // Config not initialized (e.g., during setup) - default to JSON formatter
+                $useJson = true;
+            }
             
             if ($useJson) {
                 // JsonFormatter with optimized settings for structured logging
@@ -76,8 +82,10 @@ class LoggerUtils
                     true,                                // Append newline for log viewer compatibility
                     true                                 // Ignore empty context/extra
                 );
-                // Use unescaped output for better readability in log viewers
-                self::$formatter->setJsonEncodeOptions(JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                // Use unescaped output for better readability in log viewers when supported
+                if (method_exists(self::$formatter, 'setJsonEncodeOptions')) {
+                    self::$formatter->setJsonEncodeOptions(JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                }
             } else {
                 // Plain text format for development with full context
                 self::$formatter = new LineFormatter(null, null, false, true);
@@ -139,9 +147,11 @@ class LoggerUtils
                 $handler->setFormatter(self::createFormatter());
                 
                 // Add error callback for graceful failure handling
-                $handler->setOnFailureCallback(function (\Throwable $error) {
-                    error_log('Slim logger handler failed: ' . $error->getMessage());
-                });
+                if (method_exists($handler, 'setOnFailureCallback')) {
+                    $handler->setOnFailureCallback(function (\Throwable $error) {
+                        error_log('Slim logger handler failed: ' . $error->getMessage());
+                    });
+                }
                 
                 $slimLogger->pushHandler($handler);
             } catch (\Throwable $e) {
@@ -177,9 +187,11 @@ class LoggerUtils
                 self::$appLogHandler->setFormatter(self::createFormatter());
                 
                 // Add error callback for graceful failure handling
-                self::$appLogHandler->setOnFailureCallback(function (\Throwable $error) {
-                    error_log('App logger handler failed: ' . $error->getMessage());
-                });
+                if (method_exists(self::$appLogHandler, 'setOnFailureCallback')) {
+                    self::$appLogHandler->setOnFailureCallback(function (\Throwable $error) {
+                        error_log('App logger handler failed: ' . $error->getMessage());
+                    });
+                }
                 
                 self::$appLogger->pushHandler(self::$appLogHandler);
             } catch (\Throwable $e) {
@@ -192,10 +204,23 @@ class LoggerUtils
             // Add IntrospectionProcessor for automatic call context - use Emergency level to capture all levels
             self::$appLogger->pushProcessor(new IntrospectionProcessor(Level::Emergency->value, ['ChurchCRM\\']));
             
-            self::$appLogger->pushProcessor(function (array $entry): array {
-                $entry['extra']['url'] = $_SERVER['REQUEST_URI'];
-                $entry['extra']['remote_ip'] = $_SERVER['REMOTE_ADDR'];
-                $entry['extra']['correlation_id'] = self::getCorrelationId();
+            self::$appLogger->pushProcessor(function (array|LogRecord $entry): array|LogRecord {
+                $url = $_SERVER['REQUEST_URI'] ?? '';
+                $remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+                $correlationId = self::getCorrelationId();
+
+                if ($entry instanceof LogRecord) {
+                    $extra = $entry->extra;
+                    $extra['url'] = $url;
+                    $extra['remote_ip'] = $remoteIp;
+                    $extra['correlation_id'] = $correlationId;
+
+                    return $entry->with(extra: $extra);
+                }
+
+                $entry['extra']['url'] = $url;
+                $entry['extra']['remote_ip'] = $remoteIp;
+                $entry['extra']['correlation_id'] = $correlationId;
 
                 return $entry;
             });
@@ -231,9 +256,11 @@ class LoggerUtils
                 self::$authLogHandler->setFormatter(self::createFormatter());
                 
                 // Add error callback for graceful failure handling
-                self::$authLogHandler->setOnFailureCallback(function (\Throwable $error) {
-                    error_log('Auth logger handler failed: ' . $error->getMessage());
-                });
+                if (method_exists(self::$authLogHandler, 'setOnFailureCallback')) {
+                    self::$authLogHandler->setOnFailureCallback(function (\Throwable $error) {
+                        error_log('Auth logger handler failed: ' . $error->getMessage());
+                    });
+                }
                 
                 self::$authLogger->pushHandler(self::$authLogHandler);
             } catch (\Throwable $e) {
@@ -244,11 +271,26 @@ class LoggerUtils
             // Add IntrospectionProcessor for automatic call context - use Emergency level to capture all levels
             self::$authLogger->pushProcessor(new IntrospectionProcessor(Level::Emergency->value, ['ChurchCRM\\']));
             
-            self::$authLogger->pushProcessor(function (array $entry): array {
-                $entry['extra']['url'] = $_SERVER['REQUEST_URI'];
-                $entry['extra']['remote_ip'] = $_SERVER['REMOTE_ADDR'];
-                $entry['extra']['correlation_id'] = self::getCorrelationId();
-                $entry['extra']['context'] = self::getCaller();
+            self::$authLogger->pushProcessor(function (array|LogRecord $entry): array|LogRecord {
+                $url = $_SERVER['REQUEST_URI'] ?? '';
+                $remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+                $correlationId = self::getCorrelationId();
+                $context = self::getCaller();
+
+                if ($entry instanceof LogRecord) {
+                    $extra = $entry->extra;
+                    $extra['url'] = $url;
+                    $extra['remote_ip'] = $remoteIp;
+                    $extra['correlation_id'] = $correlationId;
+                    $extra['context'] = $context;
+
+                    return $entry->with(extra: $extra);
+                }
+
+                $entry['extra']['url'] = $url;
+                $entry['extra']['remote_ip'] = $remoteIp;
+                $entry['extra']['correlation_id'] = $correlationId;
+                $entry['extra']['context'] = $context;
 
                 return $entry;
             });
@@ -278,9 +320,11 @@ class LoggerUtils
                 $handler->setFormatter(self::createFormatter());
                 
                 // Add error callback for graceful failure handling
-                $handler->setOnFailureCallback(function (\Throwable $error) {
-                    error_log('CSP logger handler failed: ' . $error->getMessage());
-                });
+                if (method_exists($handler, 'setOnFailureCallback')) {
+                    $handler->setOnFailureCallback(function (\Throwable $error) {
+                        error_log('CSP logger handler failed: ' . $error->getMessage());
+                    });
+                }
                 
                 self::$cspLogger->pushHandler($handler);
             } catch (\Throwable $e) {

@@ -5,7 +5,21 @@ use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\Service\SystemService;
 
 ?>
-    <div class="text-center" style="background-color: white; padding-top: 5px; padding-bottom: 5px; position: fixed; bottom: 0; width: 100%">
+    <style nonce="<?= SystemURLs::getCSPNonce() ?>">
+      body {
+        padding-bottom: calc(52px + env(safe-area-inset-bottom));
+      }
+      .external-fixed-footer {
+        background-color: #fff;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        z-index: 1020;
+      }
+    </style>
+    <div class="text-center external-fixed-footer">
       <strong><?= gettext('Copyright') ?> &copy; <?= SystemService::getCopyrightDate() ?> <a href="https://churchcrm.io" target="_blank"><b>Church</b>CRM</a>.</strong> <?= gettext('All rights reserved')?>.
     </div>
 
@@ -41,7 +55,10 @@ use ChurchCRM\Service\SystemService;
 
     //If this is a first-run setup, do not include google analytics code.
     if ($_SERVER['SCRIPT_NAME'] != '/setup/index.php') {
-        include_once('analyticstracking.php');
+        $analyticsPath = __DIR__ . '/analyticstracking.php';
+        if (is_file($analyticsPath)) {
+            include_once $analyticsPath;
+        }
     }
     ?>
 </body>

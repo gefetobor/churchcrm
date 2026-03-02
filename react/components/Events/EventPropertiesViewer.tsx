@@ -49,6 +49,10 @@ const EventPropertiesViewer: React.FunctionComponent<{
           </td>
         </tr>
         <tr>
+          <td>{window.i18next.t("Address")}</td>
+          <td>{event.LocationText || "N/A"}</td>
+        </tr>
+        <tr>
           <td>{window.i18next.t("Text")}</td>
           {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Event text is sanitized HTML from database (InputUtils::sanitizeHTML) */}
           <td dangerouslySetInnerHTML={{ __html: event.Text || "" }} />

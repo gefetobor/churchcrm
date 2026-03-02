@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Notification</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f5;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5; padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #d8c089;">
+          <tr>
+            <td style="padding:24px 28px 8px 28px;text-align:center;">
+              {% if churchLogoUrl %}
+                <img src="{{ churchLogoUrl }}" alt="Logo" style="max-width:220px;height:auto;display:inline-block;">
+              {% endif %}
+              <div style="margin-top:14px;font-family:Georgia, 'Times New Roman', serif;color:#1b2a4a;font-size:26px;letter-spacing:1px;">New Event Announcement</div>
+              <div style="margin:16px 0 0 0;height:1px;background:#d8c089;"></div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 28px 8px 28px;font-family:'Arial', sans-serif;color:#1b2a4a;">
+              <p style="margin:0 0 12px 0;font-size:16px;">Dear {{ personName }},</p>
+              <p style="margin:0 0 14px 0;font-size:16px;line-height:1.5;">
+                We are excited to invite you to our upcoming <strong>special service &amp; event</strong> at {{ eventLocation }}!
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 20px 10px 20px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                  <td width="50%" style="padding:6px 8px;">
+                    {% if eventImage1Url %}
+                      <img src="{{ eventImage1Url }}" alt="Event" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">
+                    {% endif %}
+                  </td>
+                  <td width="50%" style="padding:6px 8px;">
+                    {% if eventImage2Url %}
+                      <img src="{{ eventImage2Url }}" alt="Speaker" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:4px 28px 8px 28px;font-family:'Arial', sans-serif;color:#1b2a4a;">
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #d8c089;border-bottom:1px solid #d8c089;">
+                <tr>
+                  <td style="padding:12px 0;">
+                    <p style="margin:6px 0;font-size:16px;"><strong>✨ Event:</strong> {{ eventTitle }}</p>
+                    {% if eventLocation %}<p style="margin:6px 0;font-size:16px;"><strong>📍 Location:</strong> {{ eventLocation }}</p>{% endif %}
+                    <p style="margin:6px 0;font-size:16px;"><strong>🗓 Date &amp; Time:</strong> {{ eventStart }}</p>
+                    {% if eventDescription %}<p style="margin:6px 0;font-size:16px;"><strong>📖 Theme:</strong> {{ eventDescription }}</p>{% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 28px 10px 28px;font-family:'Arial', sans-serif;color:#1b2a4a;">
+              <p style="margin:0 0 10px 0;font-size:16px;line-height:1.6;">
+                We look forward to seeing you and your family as we worship together and experience God’s presence!
+              </p>
+              <p style="margin:0;font-size:16px;">Blessings,<br>Spirit Embassy Leeds Team</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 20px 18px 20px;background:#12264b;color:#ffffff;text-align:center;font-family:'Arial', sans-serif;">
+              {% if eventContactEmail %}
+                <div style="font-size:13px;">For more information, contact us at {{ eventContactEmail }}</div>
+              {% endif %}
+              <div style="margin-top:8px;font-size:12px;opacity:0.9;">Spirit Embassy Leeds • “Lives are being transformed!”</div>
+            </td>
+          </tr>
+          {% if optOutUrl %}
+          <tr>
+            <td style="padding:12px 20px 18px 20px;text-align:center;font-family:'Arial', sans-serif;font-size:12px;color:#666;">
+              <a href="{{ optOutUrl }}" style="color:#666;">{{ optOutText }}</a>
+            </td>
+          </tr>
+          {% endif %}
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

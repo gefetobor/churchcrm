@@ -3,6 +3,8 @@
 use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\dto\SystemURLs;
 use ChurchCRM\dto\ChurchMetaData;
+use ChurchCRM\data\Countries;
+use ChurchCRM\data\States;
 
 $sPageTitle = gettext("Family Registration");
 require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
@@ -13,6 +15,7 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
     window.CRM = {
         root: "<?= SystemURLs::getRootPath() ?>",
         churchWebSite: "<?= SystemURLs::getRootPath() ?>/",
+        defaultFamilyCountry: "GB",
         phoneFormats: {
             home: "<?= SystemConfig::getValue('sPhoneFormat') ?>",
             cell: "<?= SystemConfig::getValue('sPhoneFormatCell') ?>",
@@ -20,7 +23,99 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
         }
     };
 </script>
-<div class="register-box" style="width: 90%; max-width: 900px;">
+<style nonce="<?= SystemURLs::getCSPNonce() ?>">
+    body.login-page {
+        min-height: 100vh;
+        height: auto;
+        display: block;
+        background: #eef1f5;
+        padding-top: 28px;
+    }
+
+    .register-box {
+        width: min(96%, 900px) !important;
+        margin: 12px auto 20px !important;
+        padding: 0 8px;
+    }
+
+    .register-logo {
+        margin-top: 8px;
+    }
+
+    .register-logo a.h2 {
+        display: inline-block;
+        line-height: 1.2;
+        margin: 0;
+        word-break: break-word;
+    }
+
+    @media (max-width: 768px) {
+        body.login-page {
+            padding-top: 10px;
+        }
+
+        .register-box {
+            width: calc(100% - 12px) !important;
+            margin: 6px auto 14px !important;
+            padding: 0 2px;
+        }
+
+        .register-logo {
+            margin-bottom: 12px !important;
+        }
+
+        .register-logo .h2 {
+            font-size: 1.75rem;
+        }
+
+        .register-logo p {
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+
+        .bs-stepper .content {
+            padding: 16px 12px;
+        }
+
+        .step-header {
+            margin: 0 -12px 16px -12px;
+            padding: 12px 10px;
+        }
+
+        .step-header h4 {
+            font-size: 1.4rem;
+        }
+
+        .bs-stepper-header {
+            display: block;
+            padding: 10px 8px 2px 8px;
+        }
+
+        .bs-stepper-header .line {
+            display: none;
+        }
+
+        .bs-stepper-header .step {
+            margin-bottom: 8px;
+        }
+
+        .bs-stepper .step-trigger {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        #family-info-next,
+        #members-previous,
+        #members-next,
+        #review-previous,
+        #submit-registration {
+            width: 100%;
+            margin-right: 0 !important;
+            margin-bottom: 8px;
+        }
+    }
+</style>
+<div class="register-box">
     <div class="register-logo text-center mb-4">
         <a href="<?= SystemURLs::getRootPath() ?>/" class="h2"><?= ChurchMetaData::getChurchName() ?></a>
         <p class="text-muted mt-2"><?= gettext("Join our community by registering your family") ?></p>
@@ -85,41 +180,53 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="form-group col-md-6">
-                                <label for="familyState"><?= gettext('State') ?></label>
-                                <div id="familyStateContainer">
-                                    <input id="familyState" name="familyState" class="form-control" placeholder="<?= gettext('State') ?>" value="<?= SystemConfig::getValue('sDefaultState') ?>" data-default="<?= SystemConfig::getValue('sDefaultState') ?>">
-                                </div>
+                                <label for="familyCountry"><?= gettext('Country') ?></label>
+                                <select id="familyCountry" name="familyCountry" class="form-control select2" data-system-default="GB">
+                                    <?php foreach (Countries::getAll() as $country) { ?>
+                                        <option value="<?= $country->getCountryCode() ?>" <?= $country->getCountryCode() === 'GB' ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($country->getCountryName(), ENT_QUOTES, 'UTF-8') ?>
+                                        </option>
+                                    <?php } ?>
+                                </select>
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="familyZip"><?= gettext('Zip Code') ?> <span class="text-danger">*</span></label>
-                                <input id="familyZip" name="familyZip" class="form-control" placeholder="<?= gettext('Zip') ?>" value="<?= SystemConfig::getValue('sDefaultZip') ?>" required>
+                                <label for="familyZip"><?= gettext('Postal Code') ?> <span class="text-danger">*</span></label>
+                                <input id="familyZip" name="familyZip" class="form-control" placeholder="<?= gettext('Postal Code') ?>" value="<?= SystemConfig::getValue('sDefaultZip') ?>" required>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="form-group col-md-6">
-                                <label for="familyCountry"><?= gettext('Country') ?></label>
-                                <select id="familyCountry" name="familyCountry" class="form-control select2" data-system-default="<?= SystemConfig::getValue('sDefaultCountry') ?>">
-                                </select>
+                                <label for="familyState"><?= gettext('State') ?></label>
+                                <div id="familyStateContainer">
+                                    <?php
+                                    $defaultState = (string) SystemConfig::getValue('sDefaultState');
+                                    $gbStates = (new States('gb'))->getAll();
+                                    if (!empty($gbStates)) { ?>
+                                        <select id="familyState" name="familyState" class="form-control" data-default="<?= htmlspecialchars($defaultState, ENT_QUOTES, 'UTF-8') ?>">
+                                            <?php foreach ($gbStates as $stateCode => $stateName) {
+                                                $selected = ($defaultState === $stateCode || $defaultState === $stateName) ? 'selected' : '';
+                                                ?>
+                                                <option value="<?= htmlspecialchars((string) $stateCode, ENT_QUOTES, 'UTF-8') ?>" <?= $selected ?>>
+                                                    <?= htmlspecialchars((string) $stateName, ENT_QUOTES, 'UTF-8') ?>
+                                                </option>
+                                            <?php } ?>
+                                        </select>
+                                    <?php } else { ?>
+                                        <input id="familyState" name="familyState" class="form-control" placeholder="<?= gettext('State') ?>" value="<?= htmlspecialchars($defaultState, ENT_QUOTES, 'UTF-8') ?>" data-default="<?= htmlspecialchars($defaultState, ENT_QUOTES, 'UTF-8') ?>">
+                                    <?php } ?>
+                                </div>
                             </div>
                         </div>
 
                         <div class="form-group">
-                            <label for="familyHomePhone"><?= gettext('Home Phone') ?> <span class="text-danger">*</span></label>
+                            <label for="familyHomePhone"><?= gettext('Phone Number') ?> <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
                                 </div>
-                                <input id="familyHomePhone" name="familyHomePhone" class="form-control" placeholder="<?= gettext('Home phone number') ?>" data-inputmask='"mask": "<?= SystemConfig::getValue('sPhoneFormat') ?>"' data-mask required>
-                                <div class="input-group-append">
-                                    <div class="input-group-text">
-                                        <div class="custom-control custom-checkbox mb-0">
-                                            <input type="checkbox" class="custom-control-input" id="NoFormat_familyHomePhone" name="NoFormat_familyHomePhone" value="1">
-                                            <label class="custom-control-label" for="NoFormat_familyHomePhone"><?= gettext('No format') ?></label>
-                                        </div>
-                                    </div>
-                                </div>
+                                <input id="familyHomePhone" name="familyHomePhone" class="form-control" placeholder="<?= gettext('Phone number') ?>" required>
                             </div>
                             <div class="invalid-feedback"></div>
                         </div>
@@ -395,6 +502,109 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
 <script src="<?= SystemURLs::assetVersioned('/skin/v2/family-register.min.js') ?>"></script>
 <script src="<?= SystemURLs::assetVersioned('/skin/js/DropdownManager.js') ?>"></script>
 <script src="<?= SystemURLs::assetVersioned('/skin/js/FamilyRegister.js') ?>"></script>
+<script nonce="<?= SystemURLs::getCSPNonce() ?>">
+    (function () {
+        function getRootPath() {
+            if (window.CRM && typeof window.CRM.root === "string") {
+                return window.CRM.root.replace(/\/$/, "");
+            }
+            return "";
+        }
+
+        function buildStateField(states, selectedValue) {
+            var container = document.getElementById("familyStateContainer");
+            if (!container) {
+                return;
+            }
+
+            var keys = Object.keys(states || {});
+            if (keys.length > 0) {
+                var select = document.createElement("select");
+                select.id = "familyState";
+                select.name = "familyState";
+                select.className = "form-control";
+
+                var applied = false;
+                keys.forEach(function (code) {
+                    var option = document.createElement("option");
+                    option.value = code;
+                    option.textContent = states[code];
+                    if (!applied && selectedValue && (selectedValue === code || selectedValue === states[code])) {
+                        option.selected = true;
+                        applied = true;
+                    }
+                    select.appendChild(option);
+                });
+
+                if (!applied && select.options.length > 0) {
+                    select.options[0].selected = true;
+                }
+                container.innerHTML = "";
+                container.appendChild(select);
+            } else {
+                var input = document.createElement("input");
+                input.type = "text";
+                input.id = "familyState";
+                input.name = "familyState";
+                input.className = "form-control";
+                input.placeholder = "State / Province";
+                input.value = selectedValue || "";
+                container.innerHTML = "";
+                container.appendChild(input);
+            }
+        }
+
+        function loadStatesForCountry(countryCode) {
+            if (!countryCode) {
+                return;
+            }
+            var currentStateEl = document.getElementById("familyState");
+            var currentState = currentStateEl ? (currentStateEl.value || "").trim() : "";
+            var url = getRootPath() + "/api/public/data/countries/" + countryCode.toLowerCase() + "/states";
+
+            fetch(url, { credentials: "same-origin" })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error("States API request failed: " + response.status);
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    buildStateField(data, currentState);
+                })
+                .catch(function () {
+                    buildStateField({}, currentState);
+                });
+        }
+
+        function bindCountryStateSync() {
+            var country = document.getElementById("familyCountry");
+            if (!country) {
+                return;
+            }
+
+            var onCountryChanged = function () {
+                var code = (country.value || "").trim();
+                if (code !== "") {
+                    loadStatesForCountry(code);
+                }
+            };
+
+            country.addEventListener("change", onCountryChanged);
+            if (window.jQuery) {
+                window.jQuery(country).on("select2:select select2:close", onCountryChanged);
+            }
+
+            onCountryChanged();
+        }
+
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", bindCountryStateSync);
+        } else {
+            bindCountryStateSync();
+        }
+    })();
+</script>
 
 <?php
 require(SystemURLs::getDocumentRoot() . "/Include/FooterNotLoggedIn.php");

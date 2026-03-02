@@ -200,7 +200,14 @@ class SlimUtils
             
             // Determine appropriate HTTP status code based on exception type
             $statusCode = 500;
-            if ($exception instanceof HttpNotFoundException) {
+            if (method_exists($exception, 'getStatusCode')) {
+                $httpStatusCode = (int) $exception->getStatusCode();
+                if ($httpStatusCode >= 400 && $httpStatusCode <= 599) {
+                    $statusCode = $httpStatusCode;
+                }
+            } elseif ((int) $exception->getCode() >= 400 && (int) $exception->getCode() <= 599) {
+                $statusCode = (int) $exception->getCode();
+            } elseif ($exception instanceof HttpNotFoundException) {
                 $statusCode = 404;
             } elseif ($exception instanceof HttpMethodNotAllowedException) {
                 $statusCode = 405;

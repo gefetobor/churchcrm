@@ -21,8 +21,9 @@ $app->group('/public/register', function (RouteCollectorProxy $group): void {
 function registerFamilyAPI(Request $request, Response $response, array $args): Response
 {
     $familyMetadata = [];
+    $parsedBody = $request->getParsedBody() ?? [];
 
-    foreach ($request->getParsedBody() as $key => $value) {
+    foreach ($parsedBody as $key => $value) {
         if (is_string($value)) {
             $familyMetadata[$key] = InputUtils::sanitizeAndEscapeText($value);
         } elseif (is_array($value) && $key === 'people') {
@@ -42,6 +43,23 @@ function registerFamilyAPI(Request $request, Response $response, array $args): R
             $familyMetadata[$key] = $value;
         }
     };
+
+    $requiredFields = [
+        'Name' => trim((string) ($familyMetadata['Name'] ?? '')),
+        'Address1' => trim((string) ($familyMetadata['Address1'] ?? '')),
+        'Zip' => trim((string) ($familyMetadata['Zip'] ?? '')),
+        'HomePhone' => trim((string) ($familyMetadata['HomePhone'] ?? '')),
+    ];
+
+    foreach ($requiredFields as $value) {
+        if ($value === '') {
+            return SlimUtils::renderJSON($response, ['error' => gettext('Please fill the required fields.')], 400);
+        }
+    }
+
+    if (!isset($familyMetadata['people']) || !is_array($familyMetadata['people']) || count($familyMetadata['people']) === 0) {
+        return SlimUtils::renderJSON($response, ['error' => gettext('Please add at least one family member.')], 400);
+    }
 
     $family = new Family();
     $family->setName($familyMetadata['Name']);

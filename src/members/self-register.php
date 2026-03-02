@@ -7,8 +7,21 @@ $sPageTitle = gettext('Self Registrations');
 require_once __DIR__ . '/../Include/Header.php';
 
 use ChurchCRM\dto\SystemURLs;
+use Endroid\QrCode\QrCode;
+use Endroid\QrCode\Writer\PngWriter;
+
+$selfRegisterUrl = SystemURLs::getURL() . '/external/register/';
+$qrCode = new QrCode(data: $selfRegisterUrl, size: 240);
+$writer = new PngWriter();
+$qrDataUri = $writer->write($qrCode)->getDataUri();
 
 ?>
+
+<div class="d-flex justify-content-end align-items-center mb-3">
+    <button class="btn btn-outline-secondary" id="share-self-register">
+        <i class="fa-solid fa-qrcode mr-1"></i><?= gettext('Share Form') ?>
+    </button>
+</div>
 
 <div class="row">
     <div class="col-lg-12">
@@ -38,6 +51,29 @@ use ChurchCRM\dto\SystemURLs;
                 <table id="people" class="table table-striped table-bordered data-table">
                     <tbody></tbody>
                 </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="self-register-share-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><?= gettext('Share Self Register Form') ?></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="text-muted"><?= gettext('Share this link or scan the QR code') ?></p>
+                <img src="<?= $qrDataUri ?>" alt="QR Code" class="mb-3" style="max-width: 240px;">
+                <div class="input-group">
+                    <input type="text" class="form-control" readonly value="<?= htmlspecialchars($selfRegisterUrl, ENT_QUOTES, 'UTF-8') ?>">
+                    <div class="input-group-append">
+                        <button class="btn btn-outline-secondary" type="button" id="copy-self-register-link"><?= gettext('Copy') ?></button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -128,6 +164,17 @@ use ChurchCRM\dto\SystemURLs;
         }
         $.extend(dataTableConfig, window.CRM.plugin.dataTable);
         $("#people").DataTable(dataTableConfig);
+
+        $('#share-self-register').on('click', function () {
+            $('#self-register-share-modal').modal('show');
+        });
+
+        $('#copy-self-register-link').on('click', function () {
+            const input = $(this).closest('.input-group').find('input')[0];
+            input.select();
+            document.execCommand('copy');
+            window.CRM.notify(i18next.t('Link copied to clipboard'), {type: 'success', delay: 2000});
+        });
     }
 
     // Wait for locales to load before initializing

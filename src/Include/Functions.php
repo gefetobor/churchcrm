@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/LoadConfigs.php';
+
 use ChurchCRM\Authentication\AuthenticationManager;
 use ChurchCRM\dto\Cart;
 use ChurchCRM\dto\SystemConfig;

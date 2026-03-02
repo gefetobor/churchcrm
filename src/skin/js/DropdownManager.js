@@ -203,65 +203,131 @@ class DropdownManager {
 
     const config = { ...defaults, ...options };
 
-    // Initialize country
-    $.ajax({
-      type: "GET",
-      url: window.CRM.root + "/api/public/data/countries",
-    }).done(function (data) {
-      countrySelect.empty();
+    const resolveDefaultCountryCode = function (value) {
+      const v = (value || "").toString().trim().toUpperCase();
+      return v === "" ? "GB" : v;
+    };
 
-      $.each(data, function (idx, country) {
-        let selected = false;
+    const getStatesUrl = function (countryCode) {
+      const root = ((window.CRM && window.CRM.root) || "").replace(/\/$/, "");
+      return `${root}/api/public/data/countries/${countryCode.toLowerCase()}/states`;
+    };
 
-        if (config.userSelected === "") {
-          selected = config.systemDefault === country.name || config.systemDefault === country.code;
-        } else {
-          selected = config.userSelected === country.name || config.userSelected === country.code;
-        }
+    const populateStatesForCountry = function (countryCode) {
+      if (!countryCode) {
+        return;
+      }
 
-        countrySelect.append(new Option(country.name, country.code, selected, selected));
-      });
-
-      countrySelect.change();
-      countrySelect.select2();
-    });
-
-    // Handle country change
-    countrySelect.off("change").on("change", function () {
       $.ajax({
         type: "GET",
-        url: window.CRM.root + "/api/public/data/countries/" + this.value.toLowerCase() + "/states",
+        url: getStatesUrl(countryCode),
       }).done(function (data) {
         const defaultState = config.stateDefault || "";
+        const existingStateValue = ($(`#${stateFieldId}`).val() || "").toString().trim();
 
         if (Object.keys(data).length > 0) {
           // Country has states - show dropdown
-          const $select = $(
-            `<select id="${stateFieldId}" name="${stateFieldId.replace(/^[^-]+_/, "")}" class="form-control" data-default="${defaultState}"></select>`,
-          );
+          const $select = $(`<select id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}"></select>`);
+          let appliedState = false;
 
           $.each(data, function (code, name) {
             const $option = $("<option></option>").val(code).text(name);
-            if (defaultState === code || defaultState === name) {
+            if (existingStateValue !== "" && (existingStateValue === code || existingStateValue === name)) {
               $option.prop("selected", true);
+              appliedState = true;
+            } else if (!appliedState && (defaultState === code || defaultState === name)) {
+              $option.prop("selected", true);
+              appliedState = true;
             }
             $select.append($option);
           });
 
+          if (!appliedState && $select.find("option").length > 0) {
+            $select.find("option").first().prop("selected", true);
+          }
+
           stateContainer.html($select);
-          $select.select2();
         } else {
           // Country has no states - show text input
-          const $input = $(
-            `<input type="text" id="${stateFieldId}" name="${stateFieldId.replace(/^[^-]+_/, "")}" class="form-control" data-default="${defaultState}">`,
-          );
-          if (defaultState) {
+          const $input = $(`<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}">`);
+          if (existingStateValue) {
+            $input.val(existingStateValue);
+          } else if (defaultState) {
             $input.val(defaultState);
           }
           stateContainer.html($input);
         }
+      }).fail(function () {
+        const $fallbackInput = $(`<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${config.stateDefault || ""}">`);
+        $fallbackInput.val(config.stateDefault || "");
+        $fallbackInput.attr("placeholder", "State / Province");
+        stateContainer.html($fallbackInput);
       });
-    });
+    };
+
+    const handleCountryChange = function (explicitCountryCode = "") {
+      const selectedCountryCode = (explicitCountryCode || countrySelect.val() || "").toString().trim();
+      if (selectedCountryCode === "") {
+        return;
+      }
+      populateStatesForCountry(selectedCountryCode);
+    };
+
+    // Handle country change (native + Select2 events)
+    countrySelect
+      .off("change.familyRegister select2:select.familyRegister select2:close.familyRegister")
+      .on("change.familyRegister", function () {
+        handleCountryChange();
+      })
+      .on("select2:select.familyRegister", function (e) {
+        const selectedCode = e && e.params && e.params.data ? e.params.data.id || e.params.data.value || "" : "";
+        handleCountryChange(selectedCode);
+      })
+      .on("select2:close.familyRegister", function () {
+        handleCountryChange();
+      });
+
+    // Native DOM listener as an additional safeguard.
+    const nativeCountrySelect = countrySelect.get(0);
+    if (nativeCountrySelect) {
+      nativeCountrySelect.onchange = function () {
+        handleCountryChange(nativeCountrySelect.value || "");
+      };
+    }
+
+    // Keep server-rendered country list and initialize deterministic defaults.
+    const defaultCountryCode = resolveDefaultCountryCode(config.systemDefault);
+    if ((countrySelect.val() || "").toString().trim() === "" && countrySelect.find(`option[value="${defaultCountryCode}"]`).length > 0) {
+      countrySelect.val(defaultCountryCode);
+    }
+
+    if (countrySelect.hasClass("select2-hidden-accessible")) {
+      countrySelect.select2("destroy");
+    }
+    countrySelect.select2({ width: "100%" });
+
+    // Initial state population for the preselected country.
+    const initialCountryCode = (countrySelect.val() || defaultCountryCode).toString().trim();
+    populateStatesForCountry(initialCountryCode);
+
+    // Last-resort watcher: if country value changes without event propagation,
+    // still repopulate states.
+    let lastCountryCode = initialCountryCode;
+    const watcherId = window.setInterval(function () {
+      const currentCountryCode = (countrySelect.val() || "").toString();
+      if (currentCountryCode !== "" && currentCountryCode !== lastCountryCode) {
+        lastCountryCode = currentCountryCode;
+        populateStatesForCountry(currentCountryCode);
+      }
+    }, 250);
+
+    window.addEventListener(
+      "beforeunload",
+      function () {
+        window.clearInterval(watcherId);
+      },
+      { once: true },
+    );
   }
 }
 

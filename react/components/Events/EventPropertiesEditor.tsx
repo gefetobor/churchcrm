@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import Select, { type ActionMeta, type MultiValue, type SingleValue } from "react-select";
 import type Calendar from "../../interfaces/Calendar";
 import type CRMEvent from "../../interfaces/CRMEvent";
+import type EventLocation from "../../interfaces/EventLocation";
 import type EventType from "../../interfaces/EventType";
 import QuillEditor from "../QuillEditor";
 
@@ -14,20 +15,24 @@ interface Option {
 const EventPropertiesEditor: React.FunctionComponent<{
   event: CRMEvent;
   calendars: Array<Calendar>;
+  locations: Array<EventLocation>;
   eventTypes: Array<EventType>;
   changeHandler: (event: React.ChangeEvent<HTMLInputElement>) => void;
   handleStartDateChange: (date: Date | null) => void;
   handleEndDateChange: (date: Date | null) => void;
   pinnedCalendarChanged: (newValue: MultiValue<Option>, actionMeta: ActionMeta<Option>) => void;
+  eventLocationChanged: (newValue: SingleValue<Option>, actionMeta: ActionMeta<Option>) => void;
   eventTypeChanged: (newValue: SingleValue<Option>, actionMeta: ActionMeta<Option>) => void;
 }> = ({
   event,
   calendars,
+  locations,
   eventTypes,
   changeHandler,
   handleStartDateChange,
   handleEndDateChange,
   pinnedCalendarChanged,
+  eventLocationChanged,
   eventTypeChanged,
 }) => {
   //map the Calendar data type (returned from CRM API) into something that react-select can present as dropdown choices
@@ -38,6 +43,10 @@ const EventPropertiesEditor: React.FunctionComponent<{
   const EventTypeOptions: Option[] = eventTypes.map((eventType: EventType) => ({
     value: eventType.Id,
     label: eventType.Name,
+  }));
+  const locationOptions: Option[] = locations.map((location: EventLocation) => ({
+    value: location.LocationId,
+    label: location.LocationName,
   }));
   const initialPinnedCalendarValue: Option[] = calendars
     .filter((Pcal: Calendar) => event.PinnedCalendars?.includes(Pcal.Id))
@@ -50,6 +59,9 @@ const EventPropertiesEditor: React.FunctionComponent<{
       return undefined;
     })
     .find((option) => option !== undefined);
+  const initialLocationValue: Option | undefined = locationOptions.find((locationOption: Option) => {
+    return event.LocationId === locationOption.value;
+  });
   return (
     <table className="table w-100" style={{ tableLayout: "fixed" }}>
       <tbody>
@@ -133,6 +145,33 @@ const EventPropertiesEditor: React.FunctionComponent<{
                 {window.i18next.t("This field is required")}
               </div>
             )}
+          </td>
+        </tr>
+        <tr>
+          <td className="LabelColumn">{window.i18next.t("Location")}</td>
+          <td className="TextColumn">
+            <Select
+              name="LocationId"
+              inputId="LocationId"
+              options={locationOptions}
+              value={initialLocationValue}
+              onChange={eventLocationChanged}
+              isClearable={true}
+            />
+          </td>
+        </tr>
+        <tr>
+          <td className="LabelColumn">{window.i18next.t("Address")}</td>
+          <td className="TextColumn">
+            <input
+              name="LocationText"
+              id="LocationText"
+              className="form-control"
+              maxLength={255}
+              value={event.LocationText || ""}
+              onChange={changeHandler}
+              placeholder={window.i18next.t("Street, Postal Code, City, Country")}
+            />
           </td>
         </tr>
         <tr>

@@ -194,6 +194,130 @@ class   SystemConfig
             'bEnableLostPassword'                  => new ConfigItem(2004, 'bEnableLostPassword', 'boolean', '1', gettext('Show/Hide Lost Password Link on the login screen')),
             'sChurchWebSite'                       => new ConfigItem(2013, 'sChurchWebSite', 'text', '', gettext("Your Church's Website")),
             'bEnableExternalCalendarAPI'           => new ConfigItem(2017, 'bEnableExternalCalendarAPI', 'boolean', '0', gettext('Allow unauthenticated reads of events from the external calendar API')),
+
+            'bEnableEventReminders'                => new ConfigItem(2080, 'bEnableEventReminders', 'boolean', '0', gettext('Enable event reminder emails')),
+            'bEventReminderOnCreate'               => new ConfigItem(2081, 'bEventReminderOnCreate', 'boolean', '0', gettext('Send reminder when an event is created (processed by cron)')),
+            'iEventReminderDaysBefore'             => new ConfigItem(2082, 'iEventReminderDaysBefore', 'number', '3', gettext('Number of days before an event to send a reminder')),
+            'bEventReminder24Hours'                => new ConfigItem(2083, 'bEventReminder24Hours', 'boolean', '1', gettext('Send reminder 24 hours before an event')),
+            'sEventReminderTemplateHtml'           => new ConfigItem(2084, 'sEventReminderTemplateHtml', 'html',
+                '<!doctype html>' . "\n" .
+                '<html>' . "\n" .
+                '<head>' . "\n" .
+                '  <meta charset="utf-8">' . "\n" .
+                '  <meta name="viewport" content="width=device-width, initial-scale=1.0">' . "\n" .
+                '  <title>Event Notification</title>' . "\n" .
+                '</head>' . "\n" .
+                '<body style="margin:0;padding:0;background:#f5f5f5;">' . "\n" .
+                '  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f5f5f5; padding:24px 12px;">' . "\n" .
+                '    <tr>' . "\n" .
+                '      <td align="center">' . "\n" .
+                '        <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="width:600px;max-width:600px;background:#ffffff;border:1px solid #d8c089;">' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:24px 28px 8px 28px;text-align:center;">' . "\n" .
+                '              {% if churchLogoUrl %}' . "\n" .
+                '                <img src="{{ churchLogoUrl }}" alt="Logo" style="max-width:220px;height:auto;display:inline-block;">' . "\n" .
+                '              {% endif %}' . "\n" .
+                '              <div style="margin-top:14px;font-family:Georgia, \'Times New Roman\', serif;color:#1b2a4a;font-size:26px;letter-spacing:1px;">New Event Announcement</div>' . "\n" .
+                '              <div style="margin:16px 0 0 0;height:1px;background:#d8c089;"></div>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:18px 28px 8px 28px;font-family:\'Arial\', sans-serif;color:#1b2a4a;">' . "\n" .
+                '              <p style="margin:0 0 12px 0;font-size:16px;">Dear {{ personName }},</p>' . "\n" .
+                '              <p style="margin:0 0 14px 0;font-size:16px;line-height:1.5;">' . "\n" .
+                '                We are excited to invite you to our upcoming <strong>special service &amp; event</strong> at {{ eventLocation }}!' . "\n" .
+                '              </p>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:6px 20px 10px 20px;">' . "\n" .
+                '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">' . "\n" .
+                '                <tr>' . "\n" .
+                '                  <td width="50%" style="padding:6px 8px;">' . "\n" .
+                '                    {% if eventImage1Url %}' . "\n" .
+                '                      <img src="{{ eventImage1Url }}" alt="Event" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">' . "\n" .
+                '                    {% endif %}' . "\n" .
+                '                  </td>' . "\n" .
+                '                  <td width="50%" style="padding:6px 8px;">' . "\n" .
+                '                    {% if eventImage2Url %}' . "\n" .
+                '                      <img src="{{ eventImage2Url }}" alt="Speaker" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">' . "\n" .
+                '                    {% endif %}' . "\n" .
+                '                  </td>' . "\n" .
+                '                </tr>' . "\n" .
+                '              </table>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:4px 28px 8px 28px;font-family:\'Arial\', sans-serif;color:#1b2a4a;">' . "\n" .
+                '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #d8c089;border-bottom:1px solid #d8c089;">' . "\n" .
+                '                <tr>' . "\n" .
+                '                  <td style="padding:12px 0;">' . "\n" .
+                '                    <p style="margin:6px 0;font-size:16px;"><strong>Event:</strong> {{ eventTitle }}</p>' . "\n" .
+                '                    {% if eventLocation %}<p style="margin:6px 0;font-size:16px;"><strong>Address:</strong> {{ eventLocation }}</p>{% endif %}' . "\n" .
+                '                    <p style="margin:6px 0;font-size:16px;"><strong>Date &amp; Time:</strong> {{ eventStart }}</p>' . "\n" .
+                '                    {% if eventDescription %}<p style="margin:6px 0;font-size:16px;"><strong>Theme:</strong> {{ eventDescription }}</p>{% endif %}' . "\n" .
+                '                  </td>' . "\n" .
+                '                </tr>' . "\n" .
+                '              </table>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:14px 28px 10px 28px;font-family:\'Arial\', sans-serif;color:#1b2a4a;">' . "\n" .
+                '              <p style="margin:0 0 10px 0;font-size:16px;line-height:1.6;">' . "\n" .
+                '                We look forward to seeing you and your family as we worship together and experience God\'s presence!' . "\n" .
+                '              </p>' . "\n" .
+                '              <p style="margin:0;font-size:16px;">Blessings,<br>Spirit Embassy Leeds Team</p>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:14px 20px 18px 20px;background:#12264b;color:#ffffff;text-align:center;font-family:\'Arial\', sans-serif;">' . "\n" .
+                '              {% if eventContactEmail %}' . "\n" .
+                '                <div style="font-size:13px;">For more information, contact us at {{ eventContactEmail }}</div>' . "\n" .
+                '              {% endif %}' . "\n" .
+                '              <div style="margin-top:8px;font-size:12px;opacity:0.9;">Spirit Embassy Leeds &#8226; \"Lives are being transformed!\"</div>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          {% if optOutUrl %}' . "\n" .
+                '          <tr>' . "\n" .
+                '            <td style="padding:12px 20px 18px 20px;text-align:center;font-family:\'Arial\', sans-serif;font-size:12px;color:#666;">' . "\n" .
+                '              <a href="{{ optOutUrl }}" style="color:#666;">{{ optOutText }}</a>' . "\n" .
+                '            </td>' . "\n" .
+                '          </tr>' . "\n" .
+                '          {% endif %}' . "\n" .
+                '        </table>' . "\n" .
+                '      </td>' . "\n" .
+                '    </tr>' . "\n" .
+                '  </table>' . "\n" .
+                '</body>' . "\n" .
+                '</html>',
+                gettext("HTML email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventImage1Url }}, {{ eventImage2Url }}, {{ eventContactEmail }}")),
+            'sEventReminderTemplateText'           => new ConfigItem(2085, 'sEventReminderTemplateText', 'textarea',
+                'This is a reminder for {{ eventTitle }}.' . "\n" .
+                'Date: {{ eventStart }}' . "\n" .
+                '{% if eventLocation %}Address: {{ eventLocation }}{% endif %}' . "\n" .
+                '{% if eventUrl %}More info: {{ eventUrl }}{% endif %}' . "\n" .
+                '{% if eventDescription %}{{ eventDescription }}{% endif %}' . "\n" .
+                '{% if optOutUrl %}{{ optOutText }}: {{ optOutUrl }}{% endif %}',
+                gettext("Plain text email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventImage1Url }}, {{ eventImage2Url }}, {{ eventContactEmail }}")),
+            'bEventReminderOnUpdate'               => new ConfigItem(2086, 'bEventReminderOnUpdate', 'boolean', '0', gettext('Send reminder when an event is updated (processed by cron)')),
+            'sEventReminderLogoUrl'                => new ConfigItem(2087, 'sEventReminderLogoUrl', 'text', '', gettext('Event reminder email logo image URL')),
+            'sEventReminderImage1Url'              => new ConfigItem(2088, 'sEventReminderImage1Url', 'text', '', gettext('Event reminder email image 1 URL')),
+            'sEventReminderImage2Url'              => new ConfigItem(2089, 'sEventReminderImage2Url', 'text', '', gettext('Event reminder email image 2 URL')),
+            'sEventReminderContactEmail'           => new ConfigItem(2090, 'sEventReminderContactEmail', 'text', '', gettext('Event reminder email contact address')),
+            'bEnableBirthdayGreetings'             => new ConfigItem(2091, 'bEnableBirthdayGreetings', 'boolean', '0', gettext('Enable birthday greeting emails (processed by cron)')),
+            'sBirthdayGreetingSubject'             => new ConfigItem(2092, 'sBirthdayGreetingSubject', 'text', '{{ churchName }}: Happy Birthday, {{ firstName }}!', gettext("Birthday greeting email subject.\nAvailable tokens: {{ churchName }}, {{ personName }}, {{ firstName }}, {{ lastName }}, {{ age }}")),
+            'sBirthdayGreetingTemplateHtml'        => new ConfigItem(2093, 'sBirthdayGreetingTemplateHtml', 'html',
+                '<p>{{ dear }} {{ firstName }},</p>' . "\n" .
+                '<p>{{ birthdayMessage }}</p>' . "\n" .
+                '<p>{{ confirmSincerely }},<br>{{ churchName }}</p>',
+                gettext("HTML birthday greeting template.\nAvailable tokens: {{ churchName }}, {{ personName }}, {{ firstName }}, {{ lastName }}, {{ age }}, {{ birthdayMessage }}, {{ dear }}, {{ confirmSincerely }}")),
+            'sBirthdayGreetingTemplateText'        => new ConfigItem(2094, 'sBirthdayGreetingTemplateText', 'textarea',
+                '{{ dear }} {{ firstName }},' . "\n\n" .
+                '{{ birthdayMessage }}' . "\n\n" .
+                '{{ confirmSincerely }},' . "\n" .
+                '{{ churchName }}',
+                gettext("Plain text birthday greeting template.\nAvailable tokens: {{ churchName }}, {{ personName }}, {{ firstName }}, {{ lastName }}, {{ age }}, {{ birthdayMessage }}, {{ dear }}, {{ confirmSincerely }}")),
+            'sBirthdayGreetingMessage'             => new ConfigItem(2095, 'sBirthdayGreetingMessage', 'textarea', 'Wishing you a joyful birthday and a blessed year ahead!', gettext('Default birthday greeting message text')),
             
             'sNewPersonNotificationRecipientIDs'   => new ConfigItem(2018, 'sNewPersonNotificationRecipientIDs', 'text', '', gettext('Comma Separated list of PersonIDs of people to notify when a new family or person is added')),
             'bSearchIncludePersons'                => new ConfigItem(2019, 'bSearchIncludePersons', 'boolean', '1', gettext('Search People')),
@@ -287,6 +411,8 @@ class   SystemConfig
             gettext('Email Setup')        => ['sSMTPHost', 'bSMTPAuth', 'sSMTPUser', 'sSMTPPass', 'iSMTPTimeout', 'sToEmailAddress', 'bPHPMailerAutoTLS', 'sPHPMailerSMTPSecure'],
             gettext('People Setup')       => ['sDirClassifications', 'sDirRoleHead', 'sDirRoleSpouse', 'sDirRoleChild', 'sDefaultCity', 'sDefaultState', 'sDefaultZip', 'sDefaultCountry', 'bHidePersonAddress', 'bHideFriendDate', 'bHideFamilyNewsletter', 'bHideWeddingDate', 'bHideLatLon', 'bForceUppercaseZip', 'iPersonNameStyle', 'iPersonInitialStyle', 'sNewPersonNotificationRecipientIDs', 'IncludeDataInNewPersonNotifications', 'sGreeterCustomMsg1', 'sGreeterCustomMsg2', 'sInactiveClassification'],
             gettext('Enabled Features')   => ['bEnabledFinance', 'bEnabledSundaySchool', 'bEnabledEvents', 'bEnabledFundraiser', 'bEnableSelfRegistration','bEnabledEmail', 'bEnableExternalCalendarAPI'],
+            gettext('Event Reminders')    => ['bEnableEventReminders', 'bEventReminderOnCreate', 'bEventReminderOnUpdate', 'iEventReminderDaysBefore', 'bEventReminder24Hours', 'sEventReminderTemplateHtml', 'sEventReminderTemplateText', 'sEventReminderLogoUrl', 'sEventReminderImage1Url', 'sEventReminderImage2Url', 'sEventReminderContactEmail'],
+            gettext('Birthday Greetings') => ['bEnableBirthdayGreetings', 'sBirthdayGreetingSubject', 'sBirthdayGreetingTemplateHtml', 'sBirthdayGreetingTemplateText', 'sBirthdayGreetingMessage'],
             gettext('Map Settings')       => ['sGeoCoderProvider', 'sGoogleMapsGeocodeKey', 'sGoogleMapsRenderKey', 'sBingMapKey', 'sGMapIcons', 'iMapZoom'],
             gettext('Report Settings')    => ['sQBDTSettings', 'leftX', 'incrementY', 'sTaxReport1', 'sTaxReport2', 'sTaxReport3', 'sTaxSigner', 'sReminder1', 'sReminderSigner', 'sReminderNoPledge', 'sReminderNoPayments', 'sConfirm1', 'sConfirm2', 'sConfirm3', 'sConfirm4', 'sConfirm5', 'sConfirm6', 'sDear', 'sConfirmSincerely', 'sConfirmSigner', 'sPledgeSummary1', 'sPledgeSummary2', 'sDirectoryDisclaimer1', 'sDirectoryDisclaimer2', 'bDirLetterHead', 'sZeroGivers', 'sZeroGivers2', 'sZeroGivers3', 'iPDFOutputType'],
             gettext('Financial Settings') => ['sDepositSlipType', 'iChecksPerDepositForm', 'bDisplayBillCounts', 'bUseScannedChecks', 'bEnableNonDeductible', 'iFYMonth', 'bUseDonationEnvelopes', 'aFinanceQueries'],
@@ -384,6 +510,9 @@ class   SystemConfig
                 return 'number';
             case 'boolean':
                 return 'boolean';
+            case 'textarea':
+            case 'html':
+                return 'textarea';
             case 'text':
             default:
                 return 'text';
@@ -423,6 +552,9 @@ class   SystemConfig
             throw new \Exception(gettext('An invalid configuration name has been requested') . ': ' . $name);
         }
 
+        if ($name === 'sSMTPPass' && (is_null($value) || $value === '')) {
+            return;
+        }
         self::$configs[$name]->setValue($value);
     }
 
@@ -431,6 +563,10 @@ class   SystemConfig
         $success = false;
         foreach (self::$configs as $configItem) {
             if ($configItem->getId() == $Id) {
+                if ($configItem->getName() === 'sSMTPPass' && (is_null($value) || $value === '')) {
+                    $success = true;
+                    continue;
+                }
                 $configItem->setValue($value);
                 $success = true;
             }

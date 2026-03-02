@@ -8,6 +8,8 @@ use ChurchCRM\Bootstrapper;
 use ChurchCRM\dto\LocaleInfo;
 use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\dto\SystemURLs;
+use ChurchCRM\Service\SystemService;
+use ChurchCRM\Utils\FileSystemUtils;
 use ChurchCRM\Utils\InputUtils;
 use ChurchCRM\Utils\RedirectUtils;
 
@@ -20,14 +22,82 @@ $sPageTitle = gettext('System Settings');
 if (isset($_POST['save'])) {
     $new_value = $_POST['new_value'];
     $type = $_POST['type'];
+    $passwordChanged = $_POST['password_changed'] ?? [];
     ksort($type);
     reset($type);
+
+    $uploadErrors = [];
+    $uploadConfigs = [
+        'sEventReminderLogoUrl' => [
+            'field' => 'eventReminderLogoFile',
+            'basename' => 'event-reminder-logo',
+        ],
+        'sEventReminderImage1Url' => [
+            'field' => 'eventReminderImage1File',
+            'basename' => 'event-reminder-image1',
+        ],
+        'sEventReminderImage2Url' => [
+            'field' => 'eventReminderImage2File',
+            'basename' => 'event-reminder-image2',
+        ],
+    ];
+
+    $maxUploadBytes = min(10 * 1024 * 1024, (int) SystemService::getMaxUploadFileSize(false));
+    $imagesDir = SystemURLs::getImagesRoot() . '/EventReminders';
+    if (!is_dir($imagesDir)) {
+        @mkdir($imagesDir, 0755, true);
+    }
+
+    foreach ($uploadConfigs as $configName => $config) {
+        if (!isset($_FILES[$config['field']]) || $_FILES[$config['field']]['error'] === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+
+        $upload = $_FILES[$config['field']];
+        if ($upload['error'] !== UPLOAD_ERR_OK) {
+            $uploadErrors[] = gettext('Failed to upload file for ') . $configName;
+            continue;
+        }
+
+        if ($upload['size'] > $maxUploadBytes) {
+            $uploadErrors[] = gettext('Uploaded file exceeds maximum size for ') . $configName;
+            continue;
+        }
+
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->file($upload['tmp_name']);
+        $extMap = [
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+        ];
+        if (!isset($extMap[$mime])) {
+            $uploadErrors[] = gettext('Invalid image type for ') . $configName;
+            continue;
+        }
+
+        $ext = $extMap[$mime];
+        FileSystemUtils::deleteFiles($imagesDir . '/' . $config['basename'] . '.', ['jpg', 'jpeg', 'png', 'webp']);
+        $targetPath = $imagesDir . '/' . $config['basename'] . '.' . $ext;
+        if (!move_uploaded_file($upload['tmp_name'], $targetPath)) {
+            $uploadErrors[] = gettext('Failed to save uploaded file for ') . $configName;
+            continue;
+        }
+
+        $url = SystemURLs::getURL() . '/Images/EventReminders/' . $config['basename'] . '.' . $ext;
+        $configItem = SystemConfig::getConfigItem($configName);
+        if ($configItem) {
+            $new_value[$configItem->getId()] = $url;
+        }
+    }
 
     while ($current_type = current($type)) {
         $id = key($type);
         // Filter Input based on type
         if ($current_type == 'text' || $current_type == 'textarea' || $current_type == 'password') {
             $value = InputUtils::sanitizeText($new_value[$id]);
+        } elseif ($current_type == 'html') {
+            $value = InputUtils::sanitizeHTML($new_value[$id]);
         } elseif ($current_type == 'number') {
             $value = InputUtils::filterFloat($new_value[$id]);
         } elseif ($current_type == 'date') {
@@ -57,7 +127,14 @@ if (isset($_POST['save'])) {
             $value = date_default_timezone_get();
         }
 
-        // For password fields, only update if a new value is provided (non-empty)
+        // For password fields, only update if a new value is provided (non-empty) and explicitly changed
+        if ($current_type == 'password') {
+            $changed = $passwordChanged[$id] ?? '0';
+            if (empty($value) || $changed !== '1') {
+                next($type);
+                continue;
+            }
+        }
         if ($current_type == 'password' && empty($value)) {
             // Skip update - preserve existing password
             next($type);
@@ -69,6 +146,10 @@ if (isset($_POST['save'])) {
     }
     $_SESSION['sGlobalMessage'] = gettext('Setting saved');
     $_SESSION['sGlobalMessageClass'] = 'success';
+    if (!empty($uploadErrors)) {
+        $_SESSION['sGlobalMessage'] = implode("\n", $uploadErrors);
+        $_SESSION['sGlobalMessageClass'] = 'warning';
+    }
     RedirectUtils::redirect("SystemSettings.php");
 }
 
@@ -102,7 +183,7 @@ require_once __DIR__ . '/Include/Header.php';
   </div>
 </div>
 
-<form name="SystemSettingsForm" method=post action=SystemSettings.php>
+<form name="SystemSettingsForm" method=post action=SystemSettings.php enctype="multipart/form-data">
 <div class="row">
   <div class="col-2 col-sm-2">
     <div class="nav flex-column nav-tabs h-100" id="vert-tabs-tab" role="tablist" aria-orientation="vertical">
@@ -164,16 +245,37 @@ require_once __DIR__ . '/Include/Header.php';
                       </select>
                         <?php
                     } elseif ($setting->getType() == 'text') {
-                        ?>
+                        $isEventReminderAsset = in_array($setting->getName(), ['sEventReminderLogoUrl', 'sEventReminderImage1Url', 'sEventReminderImage2Url'], true);
+                        if ($isEventReminderAsset) {
+                            $fieldMap = [
+                                'sEventReminderLogoUrl' => 'eventReminderLogoFile',
+                                'sEventReminderImage1Url' => 'eventReminderImage1File',
+                                'sEventReminderImage2Url' => 'eventReminderImage2File',
+                            ];
+                            $fieldName = $fieldMap[$setting->getName()];
+                            ?>
+                      <input type="hidden" name='new_value[<?= $setting->getId() ?>]' value='<?= InputUtils::escapeHTML($setting->getValue()) ?>'>
+                      <div class="small text-muted mb-1"><?= gettext('Current') ?>: <?= InputUtils::escapeHTML($setting->getValue()) ?></div>
+                      <input type="file" name="<?= $fieldName ?>" accept="image/jpeg,image/png,image/webp" class="form-control-file">
+                      <small class="form-text text-muted"><?= gettext('Upload a new image to replace the current one (max 10MB).') ?></small>
+                            <?php
+                        } else {
+                            ?>
                       <input type=text size=40 maxlength=255 name='new_value[<?= $setting->getId() ?>]' value='<?= InputUtils::escapeHTML($setting->getValue()) ?>' class="form-control">
-                        <?php
+                            <?php
+                        }
                     } elseif ($setting->getType() == 'password') {
                         ?>
-                      <input type=password size=40 maxlength=255 name='new_value[<?= $setting->getId() ?>]' class="form-control" placeholder="<?= gettext('Leave blank to keep existing password') ?>">
+                      <input type="hidden" name="password_changed[<?= $setting->getId() ?>]" value="0">
+                      <input type=password size=40 maxlength=255 name='new_value[<?= $setting->getId() ?>]' class="form-control" autocomplete="new-password" data-password-id="<?= $setting->getId() ?>" placeholder="<?= gettext('Leave blank to keep existing password') ?>">
                         <?php
                     } elseif ($setting->getType() == 'textarea') {
                         ?>
                       <textarea rows=4 cols=40 name='new_value[<?= $setting->getId() ?>]' class="form-control"><?= InputUtils::escapeHTML($setting->getValue()) ?></textarea>
+                        <?php
+                    } elseif ($setting->getType() == 'html') {
+                        ?>
+                      <textarea rows=8 cols=40 name='new_value[<?= $setting->getId() ?>]' class="form-control"><?= InputUtils::escapeHTML($setting->getValue()) ?></textarea>
                         <?php
                     } elseif ($setting->getType() == 'number' || $setting->getType() == 'date') {
                         ?>
@@ -251,6 +353,16 @@ require_once __DIR__ . '/Include/Header.php';
 
 <script nonce="<?= SystemURLs::getCSPNonce() ?>">
   $(document).ready(function() {
+    document.querySelectorAll('input[data-password-id]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        var id = input.getAttribute('data-password-id');
+        var hidden = document.querySelector('input[name="password_changed[' + id + ']"]');
+        if (hidden) {
+          hidden.value = '1';
+        }
+      });
+    });
+
     $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
       var target = $(e.target).attr("href") // activated tab
       $(target + " .choiceSelectBox").select2({

@@ -1,0 +1,32 @@
+services:
+    churchcrm:
+        build: .
+        container_name: churchcrm_app
+        platform: linux/amd64
+        ports:
+            - "8080:80"
+        volumes:
+            - ./src/vendor:/var/www/html/src/vendor
+        environment:
+            DB_SERVER: mysql
+            DB_NAME: churchcrm
+            DB_USER: churchcrm
+            DB_PASSWORD: churchcrm
+        depends_on:
+            - mysql
+
+    mysql:
+        image: mysql:8.0.36
+        container_name: churchcrm_db
+        platform: linux/amd64
+        restart: always
+        environment:
+            MYSQL_DATABASE: churchcrm
+            MYSQL_USER: churchcrm
+            MYSQL_PASSWORD: churchcrm
+            MYSQL_ROOT_PASSWORD: root
+        volumes:
+            - mysql_data:/var/lib/mysql
+
+volumes:
+    mysql_data:

@@ -5,9 +5,68 @@
   let registrationStepper;
   let validators = {};
   let state = {
-    validatedNavigation: null,
     currentMemberCount: 0,
   };
+
+  function tr(message) {
+    if (window.i18next && typeof window.i18next.t === "function") {
+      return window.i18next.t(message);
+    }
+    if (typeof window.gettext === "function") {
+      return window.gettext(message);
+    }
+    return message;
+  }
+
+  function notifyMessage(message, type = "warning", delay = 4000) {
+    if (window.CRM && typeof window.CRM.notify === "function") {
+      window.CRM.notify(message, { type, delay });
+      return;
+    }
+    window.alert(message);
+  }
+
+  function createFallbackStepper(stepperElement) {
+    const panels = [
+      document.getElementById("step-family-info"),
+      document.getElementById("step-members"),
+      document.getElementById("step-review"),
+    ];
+    let currentIndex = 0;
+
+    function render() {
+      panels.forEach(function (panel, index) {
+        if (!panel) {
+          return;
+        }
+        panel.style.display = index === currentIndex ? "block" : "none";
+        panel.classList.toggle("active", index === currentIndex);
+      });
+    }
+
+    function moveTo(targetIndex) {
+      if (targetIndex < 0 || targetIndex >= panels.length || targetIndex === currentIndex) {
+        return;
+      }
+      const from = currentIndex;
+      currentIndex = targetIndex;
+      const evt = new CustomEvent("show.bs-stepper", {
+        detail: { from, to: targetIndex },
+      });
+      stepperElement.dispatchEvent(evt);
+      render();
+    }
+
+    render();
+    return {
+      next: function () {
+        moveTo(currentIndex + 1);
+      },
+      previous: function () {
+        moveTo(currentIndex - 1);
+      },
+    };
+  }
 
   // ==================== Phone Mask Toggle ====================
 
@@ -233,14 +292,20 @@
     const lastNameInput = $(`#member-last-name-${memberIndex}`);
     const displayNameSpan = memberCard.querySelector(".member-display-name");
 
+    const familyName = ($("#familyName").val() || "").toString().trim();
+    if (familyName !== "") {
+      lastNameInput.val(familyName);
+    }
+
     const updateDisplayName = function () {
-      const firstName = firstNameInput.val() || gettext("Member");
+      const firstName = firstNameInput.val() || tr("Member");
       const lastName = lastNameInput.val() ? ` ${lastNameInput.val()}` : "";
       displayNameSpan.textContent = `${firstName}${lastName}`;
     };
 
     firstNameInput.on("change keyup", updateDisplayName);
     lastNameInput.on("change keyup", updateDisplayName);
+    updateDisplayName();
 
     // Initialize date picker on new birthday field
     const birthdayInput = $(`#member-birthday-${memberIndex}`);
@@ -300,7 +365,119 @@
   function updateMemberCount() {
     const plural = state.currentMemberCount === 1 ? "member" : "members";
     // i18next-disable-next-line
-    $("#member-count-display").text(`${state.currentMemberCount} ${i18next.t(plural)}`);
+    $("#member-count-display").text(`${state.currentMemberCount} ${tr(plural)}`);
+  }
+
+  function syncMemberLastNamesWithFamilyName() {
+    const familyName = ($("#familyName").val() || "").toString().trim();
+    if (familyName === "") {
+      return;
+    }
+
+    $(".member-card").each(function () {
+      const $lastNameField = $(this).find(".member-last-name");
+      $lastNameField.val(familyName);
+      $lastNameField.trigger("change");
+    });
+  }
+
+  function reloadStateOptionsFromCountrySelection() {
+    const $country = $("#familyCountry");
+    const $stateContainer = $("#familyStateContainer");
+    if ($country.length === 0 || $stateContainer.length === 0) {
+      return;
+    }
+
+    const countryCode = (($country.val() || "") + "").trim().toLowerCase();
+    if (countryCode === "") {
+      return;
+    }
+
+    const existingStateValue = (($("#familyState").val() || "") + "").trim();
+    const root = ((window.CRM && window.CRM.root) || "").replace(/\/$/, "");
+    const statesUrl = `${root}/api/public/data/countries/${countryCode}/states`;
+
+    $.ajax({
+      type: "GET",
+      url: statesUrl,
+    })
+      .done(function (data) {
+        if (data && Object.keys(data).length > 0) {
+          const $select = $('<select id="familyState" name="familyState" class="form-control"></select>');
+          let selectedApplied = false;
+
+          $.each(data, function (code, name) {
+            const $option = $("<option></option>").val(code).text(name);
+            if (existingStateValue !== "" && (existingStateValue === code || existingStateValue === name)) {
+              $option.prop("selected", true);
+              selectedApplied = true;
+            }
+            $select.append($option);
+          });
+
+          if (!selectedApplied && $select.find("option").length > 0) {
+            $select.find("option").first().prop("selected", true);
+          }
+
+          $stateContainer.html($select);
+        } else {
+          const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="State / Province">');
+          $input.val(existingStateValue);
+          $stateContainer.html($input);
+        }
+      })
+      .fail(function () {
+        const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="State / Province">');
+        $input.val(existingStateValue);
+        $stateContainer.html($input);
+      });
+  }
+
+  /**
+   * Ensure family country has a reliable default after async country list load.
+   * This protects against empty initial selection when Select2/country loading timing varies.
+   */
+  function enforceDefaultFamilyCountry() {
+    const $country = $("#familyCountry");
+    if ($country.length === 0) {
+      return;
+    }
+
+    const defaultCountry = (($country.data("system-default") || window.CRM.defaultFamilyCountry || "GB") + "")
+      .toUpperCase()
+      .trim();
+
+    const applyDefaultIfNeeded = function () {
+      const hasOptions = $country.find("option").length > 0;
+      if (!hasOptions) {
+        return false;
+      }
+
+      const currentValue = (($country.val() || "") + "").toUpperCase().trim();
+      if (currentValue !== "") {
+        return true;
+      }
+
+      const $targetOption = $country.find(`option[value="${defaultCountry}"]`);
+      if ($targetOption.length > 0) {
+        $country.val(defaultCountry).trigger("change");
+      }
+
+      return true;
+    };
+
+    if (applyDefaultIfNeeded()) {
+      return;
+    }
+
+    let retries = 12;
+    const interval = setInterval(function () {
+      const done = applyDefaultIfNeeded();
+      retries--;
+      if (done || retries <= 0) {
+        clearInterval(interval);
+      }
+    }, 150);
   }
 
   // ==================== Data Collection ====================
@@ -410,12 +587,12 @@
       [
         {
           rule: "required",
-          errorMessage: i18next.t("Family name is required"),
+          errorMessage: tr("Family name is required"),
         },
         {
           rule: "minLength",
           value: 2,
-          errorMessage: i18next.t("Family name must be at least 2 characters"),
+          errorMessage: tr("Family name must be at least 2 characters"),
         },
       ],
       familyNameContainer ? { errorsContainer: familyNameContainer } : {},
@@ -428,7 +605,7 @@
       [
         {
           rule: "required",
-          errorMessage: i18next.t("Address is required"),
+          errorMessage: tr("Address is required"),
         },
       ],
       address1Container ? { errorsContainer: address1Container } : {},
@@ -441,7 +618,7 @@
       [
         {
           rule: "required",
-          errorMessage: i18next.t("City is required"),
+          errorMessage: tr("City is required"),
         },
       ],
       cityContainer ? { errorsContainer: cityContainer } : {},
@@ -454,7 +631,7 @@
       [
         {
           rule: "required",
-          errorMessage: i18next.t("Zip code is required"),
+          errorMessage: tr("Postal code is required"),
         },
       ],
       zipContainer ? { errorsContainer: zipContainer } : {},
@@ -467,12 +644,12 @@
       [
         {
           rule: "required",
-          errorMessage: i18next.t("Home phone is required"),
+          errorMessage: tr("Phone number is required"),
         },
         {
           rule: "minLength",
           value: 7,
-          errorMessage: i18next.t("Please enter a valid phone number"),
+          errorMessage: tr("Please enter a valid phone number"),
         },
       ],
       phoneContainer ? { errorsContainer: phoneContainer } : {},
@@ -499,12 +676,12 @@
         [
           {
             rule: "required",
-            errorMessage: i18next.t("First name is required"),
+            errorMessage: tr("First name is required"),
           },
           {
             rule: "minLength",
             value: 2,
-            errorMessage: i18next.t("First name must be at least 2 characters"),
+            errorMessage: tr("First name must be at least 2 characters"),
           },
         ],
         firstNameContainer ? { errorsContainer: firstNameContainer } : {},
@@ -517,12 +694,12 @@
         [
           {
             rule: "required",
-            errorMessage: i18next.t("Last name is required"),
+            errorMessage: tr("Last name is required"),
           },
           {
             rule: "minLength",
             value: 2,
-            errorMessage: i18next.t("Last name must be at least 2 characters"),
+            errorMessage: tr("Last name must be at least 2 characters"),
           },
         ],
         lastNameContainer ? { errorsContainer: lastNameContainer } : {},
@@ -535,7 +712,7 @@
         [
           {
             rule: "email",
-            errorMessage: i18next.t("Please enter a valid email address (e.g., name@example.com)"),
+            errorMessage: tr("Please enter a valid email address (e.g., name@example.com)"),
           },
         ],
         emailContainer ? { errorsContainer: emailContainer } : {},
@@ -647,18 +824,18 @@
     })
       .done(function (data) {
         bootbox.dialog({
-          title: i18next.t("Registration Complete"),
-          message: i18next.t("Thank you for registering your family"),
+          title: tr("Registration Complete"),
+          message: tr("Thank you for registering your family"),
           buttons: {
             new: {
-              label: i18next.t("Register another family!"),
+              label: tr("Register another family!"),
               className: "btn-default",
               callback: function () {
                 window.location.href = `${rootPath}/external/register/`;
               },
             },
             done: {
-              label: i18next.t("Done, show me the homepage!"),
+              label: tr("Done, show me the homepage!"),
               className: "btn-info",
               callback: function () {
                 window.location.href = window.CRM.churchWebSite;
@@ -670,7 +847,7 @@
       .fail(function (xhr) {
         console.error("Registration failed:", xhr);
 
-        let errorMessage = i18next.t("Sorry, we are unable to process your request at this point in time.");
+        let errorMessage = tr("Sorry, we are unable to process your request at this point in time.");
 
         if (xhr.responseJSON && xhr.responseJSON.message) {
           errorMessage = xhr.responseJSON.message;
@@ -687,7 +864,7 @@
         }
 
         bootbox.alert({
-          title: i18next.t("Registration Error"),
+          title: tr("Registration Error"),
           message: errorMessage,
         });
       });
@@ -699,6 +876,9 @@
   document.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("registration-form");
     const stepperElement = document.getElementById("registration-stepper");
+    if (!stepperElement) {
+      return;
+    }
 
     // Prevent form submission (we handle it via AJAX)
     if (form) {
@@ -708,15 +888,20 @@
       });
     }
 
-    registrationStepper = new Stepper(stepperElement, {
-      linear: true,
-      animation: true,
-      selectors: {
-        steps: ".step",
-        trigger: ".step-trigger",
-        stepper: ".bs-stepper",
-      },
-    });
+    if (typeof Stepper === "function") {
+      registrationStepper = new Stepper(stepperElement, {
+        linear: true,
+        animation: true,
+        selectors: {
+          steps: ".step",
+          trigger: ".step-trigger",
+          stepper: ".bs-stepper",
+        },
+      });
+    } else {
+      registrationStepper = createFallbackStepper(stepperElement);
+      console.error("bs-stepper is unavailable; using fallback step navigation.");
+    }
 
     // Store globally for onclick handlers
     window.registrationStepper = registrationStepper;
@@ -734,37 +919,13 @@
       addMember();
     });
 
-    // Validation on step change - Enhanced event-based validation
+    // Prepare review content when entering review step
     stepperElement.addEventListener("show.bs-stepper", function (event) {
-      const currentStep = event.detail.from;
       const nextStep = event.detail.to;
-
-      // Check if this navigation was already validated
-      if (
-        state.validatedNavigation &&
-        state.validatedNavigation.from === currentStep &&
-        state.validatedNavigation.to === nextStep
-      ) {
-        state.validatedNavigation = null;
-        // Continue with navigation - prepare content for new step
-        if (nextStep === 2) {
-          setTimeout(function () {
-            displayReviewSummary();
-          }, 50);
-        }
-        return;
-      }
-
-      // Only validate when moving forward
-      if (nextStep > currentStep) {
-        // Prevent navigation - validation should happen in button handlers
-        event.preventDefault();
-        return;
-      }
-
-      // Handle backward navigation (always allowed)
-      if (nextStep < currentStep) {
-        return;
+      if (nextStep === 2) {
+        setTimeout(function () {
+          displayReviewSummary();
+        }, 50);
       }
     });
 
@@ -779,17 +940,13 @@
       if (validators["step-family-info"]) {
         validators["step-family-info"].revalidate().then(function (isValid) {
           if (isValid) {
-            state.validatedNavigation = { from: 0, to: 1 };
             registrationStepper.next();
           } else {
             // Use notify if available, otherwise fallback to alert for external pages
             if (window.CRM && window.CRM.notify) {
-              window.CRM.notify(i18next.t("Please fill in all required fields correctly."), {
-                type: "warning",
-                delay: 4000,
-              });
+              notifyMessage(tr("Please fill in all required fields correctly."));
             } else {
-              alert(i18next.t("Please fill in all required fields correctly."));
+              alert(tr("Please fill in all required fields correctly."));
             }
           }
         });
@@ -807,23 +964,16 @@
 
       // Validate at least 1 member exists
       if (state.currentMemberCount === 0) {
-        window.CRM.notify(i18next.t("Please add at least one family member."), {
-          type: "warning",
-          delay: 4000,
-        });
+        notifyMessage(tr("Please add at least one family member."));
         return;
       }
 
       if (validators["step-members"]) {
         validators["step-members"].revalidate().then(function (isValid) {
           if (isValid) {
-            state.validatedNavigation = { from: 1, to: 2 };
             registrationStepper.next();
           } else {
-            window.CRM.notify(i18next.t("Please fill in all required fields correctly."), {
-              type: "warning",
-              delay: 4000,
-            });
+            notifyMessage(tr("Please fill in all required fields correctly."));
           }
         });
       } else {
@@ -835,23 +985,25 @@
       registrationStepper.previous();
     });
 
-    // Update member last names when family name changes
-    $("#familyName").on("change", function () {
-      const familyName = $(this).val();
-      // Pre-fill last name for all existing member cards if not set
-      $(`.member-card`).each(function () {
-        const $lastNameField = $(this).find(".member-last-name");
-        if (!$lastNameField.val()) {
-          $lastNameField.val(familyName);
-        }
-      });
+    // Keep member last names aligned with family name
+    $("#familyName").on("input change keyup", function () {
+      syncMemberLastNamesWithFamilyName();
     });
 
     // Load countries and handle state cascading using DropdownManager
     DropdownManager.initializeFamilyRegisterCountryState("familyCountry", "familyStateContainer", "familyState", {
-      systemDefault: $("#familyCountry").data("system-default"),
+      systemDefault: (($("#familyCountry").data("system-default") || window.CRM.defaultFamilyCountry || "GB") + "")
+        .toUpperCase()
+        .trim(),
       stateDefault: $("#familyState").data("default") || "",
     });
+    enforceDefaultFamilyCountry();
+    $(document)
+      .off("change.familyStateFallback select2:select.familyStateFallback", "#familyCountry")
+      .on("change.familyStateFallback select2:select.familyStateFallback", "#familyCountry", function () {
+        reloadStateOptionsFromCountrySelection();
+      });
+    setTimeout(reloadStateOptionsFromCountrySelection, 200);
 
     // Initialize date pickers and input masks
     $(".inputDatePicker").datepicker({
@@ -867,12 +1019,5 @@
       }
     });
 
-    // Initialize phone mask toggles
-    if (window.CRM && window.CRM.formUtils && window.CRM.formUtils.togglePhoneMask) {
-      window.CRM.formUtils.togglePhoneMask("NoFormat_familyHomePhone", "familyHomePhone");
-    } else {
-      // Fallback: inline toggle functionality for external pages that don't load main bundle
-      initializeFamilyHomePhoneToggle();
-    }
   });
 })();

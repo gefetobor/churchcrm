@@ -93,6 +93,76 @@ class InputUtils
     }
 
     /**
+     * Sanitize HTML for email templates while preserving layout styles.
+     * This allows a limited set of inline styles and table attributes used in email rendering.
+     */
+    public static function sanitizeEmailHTML($sInput): string
+    {
+        $sInput = trim($sInput);
+
+        if (empty($sInput)) {
+            return '';
+        }
+
+        $config = \HTMLPurifier_Config::createDefault();
+
+        $config->set(
+            'HTML.Allowed',
+            'a[href|style|target],b,strong,i,em,u,br,hr,' .
+            'h1[style],h2[style],h3[style],h4[style],h5[style],h6[style],' .
+            'p[style],div[style],span[style],small[style],blockquote[style],' .
+            'table[style|width|cellpadding|cellspacing|border|align|bgcolor],tr[style|align|bgcolor],td[style|width|align|valign|bgcolor],th[style|width|align|valign|bgcolor],' .
+            'img[src|alt|width|height|style]'
+        );
+
+        $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
+        $config->set('HTML.ForbiddenElements', ['script', 'iframe', 'embed', 'object', 'form', 'meta']);
+        $config->set('AutoFormat.AutoParagraph', false);
+        $config->set('Attr.EnableID', false);
+
+        $config->set('CSS.AllowedProperties', [
+            'color',
+            'background',
+            'background-color',
+            'font-size',
+            'font-family',
+            'font-weight',
+            'font-style',
+            'letter-spacing',
+            'line-height',
+            'text-align',
+            'text-decoration',
+            'margin',
+            'margin-top',
+            'margin-right',
+            'margin-bottom',
+            'margin-left',
+            'padding',
+            'padding-top',
+            'padding-right',
+            'padding-bottom',
+            'padding-left',
+            'border',
+            'border-top',
+            'border-right',
+            'border-bottom',
+            'border-left',
+            'border-color',
+            'border-style',
+            'border-width',
+            'width',
+            'height',
+            'max-width',
+            'display',
+            'opacity',
+        ]);
+
+        $purifier = new \HTMLPurifier($config);
+
+        return $purifier->purify($sInput);
+    }
+
+    /**
      * Escape HTML for safe display in HTML context (body content and attributes)
      * Converts special characters to HTML entities: &, <, >, ", '
      * Automatically handles stripslashes() for magic quotes compatibility
