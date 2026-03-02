@@ -29,6 +29,10 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Copy ChurchCRM source code
 COPY . /var/www/html
 
+# Install PHP dependencies for runtime (creates src/vendor/autoload.php)
+RUN cd /var/www/html/src \
+    && composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
 # Build frontend assets in production mode (low-memory sequence for small VPS)
 RUN cd /var/www/html \
     && npm install --no-audit --no-fund --ignore-scripts \
