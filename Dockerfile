@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg62-turbo-dev \
     libfreetype6-dev \
     libgettextpo-dev \
-    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo_mysql mbstring zip bcmath gd gettext mysqli \
@@ -29,22 +29,24 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 # Copy ChurchCRM source code
 COPY . /var/www/html
 
-# Build frontend assets in production mode (required for setup UI)
+# Build frontend assets in production mode (low-memory sequence for small VPS)
 RUN cd /var/www/html \
     && npm install --no-audit --no-fund --ignore-scripts \
-    && NODE_ENV=production npm run build:js
+    && npm run build:js:legacy \
+    && NODE_OPTIONS=--max-old-space-size=768 npm run build:webpack
 
 # Generate file signatures for integrity check
 RUN node /var/www/html/scripts/generate-signatures-node.js
 
 # Apache: serve from src/ (ChurchCRM entry point) and allow .htaccess
-RUN echo '<VirtualHost *:80>\n\
-    DocumentRoot /var/www/html/src\n\
-    <Directory /var/www/html/src>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-    </Directory>\n\
-</VirtualHost>' > /etc/apache2/sites-available/000-default.conf \
+RUN printf '%s\n' \
+    '<VirtualHost *:80>' \
+    '    DocumentRoot /var/www/html/src' \
+    '    <Directory /var/www/html/src>' \
+    '        AllowOverride All' \
+    '        Require all granted' \
+    '    </Directory>' \
+    '</VirtualHost>' > /etc/apache2/sites-available/000-default.conf \
     && a2enmod rewrite headers \
     && chown -R www-data:www-data /var/www/html
 
