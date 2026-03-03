@@ -5,26 +5,61 @@ use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\dto\SystemURLs;
 
 $sPageTitle = gettext('First Timer Registration');
+$displayChurchName = ChurchMetaData::getChurchName() ?: 'Spirit Embassy Leeds';
 require(SystemURLs::getDocumentRoot() . '/Include/HeaderNotLoggedIn.php');
 
 ?>
 <link rel="stylesheet" href="<?= SystemURLs::assetVersioned('/skin/v2/family-register.min.css') ?>">
 <style nonce="<?= SystemURLs::getCSPNonce() ?>">
+    body.login-page,
+    body.register-page {
+        display: block !important;
+        min-height: 100vh !important;
+        height: auto !important;
+        padding-top: 18px !important;
+        overflow-y: auto !important;
+    }
+
     .register-box.register-box-600 {
-        width: 90%;
-        max-width: 600px;
+        width: 92%;
+        max-width: 680px;
         margin-top: 24px;
         margin-bottom: 96px;
     }
 
     .register-box.register-box-600 .register-logo {
-        margin-top: 12px !important;
+        margin-top: 0 !important;
+        margin-bottom: 20px !important;
+    }
+
+    .ftv-church-name {
+        display: block;
+        margin: 0 auto;
+        font-size: clamp(1.8rem, 3.2vw, 3rem);
+        font-weight: 700;
+        color: #2d3748;
+        line-height: 1.2;
+        max-width: 100%;
+        text-decoration: none;
+    }
+
+    .ftv-form-title {
+        display: block;
+        margin: 14px auto 0;
+        padding: 10px 24px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #1e88e5 0%, #5e35b1 100%);
+        color: #fff;
+        font-size: clamp(1rem, 2.3vw, 1.35rem);
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        box-shadow: 0 10px 20px rgba(30, 136, 229, 0.22);
     }
 
     @media (max-width: 767.98px) {
         .register-box.register-box-600 {
             width: calc(100% - 24px);
-            margin-top: 12px;
+            margin-top: 16px;
             margin-bottom: calc(104px + env(safe-area-inset-bottom));
         }
 
@@ -34,6 +69,16 @@ require(SystemURLs::getDocumentRoot() . '/Include/HeaderNotLoggedIn.php');
 
         .register-box.register-box-600 .btn.btn-block {
             min-height: 44px;
+        }
+
+        .ftv-church-name {
+            font-size: clamp(1.45rem, 6.4vw, 2rem);
+        }
+
+        .ftv-form-title {
+            margin-top: 12px;
+            padding: 9px 18px;
+            font-size: 1rem;
         }
     }
 </style>
@@ -50,9 +95,9 @@ require(SystemURLs::getDocumentRoot() . '/Include/HeaderNotLoggedIn.php');
 </script>
 
 <div class="register-box register-box-600">
-    <div class="register-logo text-center mb-4">
-        <a href="<?= SystemURLs::getRootPath() ?>/" class="h2"><?= ChurchMetaData::getChurchName() ?></a>
-        <p class="text-muted mt-2"><?= gettext('First Time Visitor') ?></p>
+    <div class="register-logo text-center">
+        <a href="<?= SystemURLs::getRootPath() ?>/" class="ftv-church-name"><?= $displayChurchName ?></a>
+        <div class="ftv-form-title"><?= gettext('First Timer Form') ?></div>
     </div>
 
     <div class="card registration-card">
@@ -75,7 +120,7 @@ require(SystemURLs::getDocumentRoot() . '/Include/HeaderNotLoggedIn.php');
                     <input id="phone" name="phone" type="text" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="postcode"><?= gettext('Postal Code') ?> <span class="text-danger">*</span></label>
+                    <label for="postcode"><?= gettext('Postcode') ?> <span class="text-danger">*</span></label>
                     <input id="postcode" name="postcode" type="text" class="form-control" required>
                 </div>
                 <div class="form-group">
