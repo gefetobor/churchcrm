@@ -87,7 +87,12 @@ class AdminService
         }
 
         // HTTPS check
-        if (!isset($_SERVER['HTTPS'])) {
+        // Accept direct HTTPS and common reverse-proxy forwarding headers.
+        $httpsEnabled = isset($_SERVER['HTTPS'])
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https')
+            || (isset($_SERVER['HTTP_X_FORWARDED_SSL']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_SSL']) === 'on');
+
+        if (!$httpsEnabled) {
             $warnings[] = [
                 'title' => gettext('HTTPS Not Configured'),
                 'desc' => gettext('Install TLS/SSL certificate for better security'),

@@ -46,6 +46,7 @@ RUN node /var/www/html/scripts/generate-signatures-node.js
 RUN printf '%s\n' \
     '<VirtualHost *:80>' \
     '    DocumentRoot /var/www/html/src' \
+    '    SetEnvIf X-Forwarded-Proto https HTTPS=on' \
     '    <Directory /var/www/html/src>' \
     '        AllowOverride All' \
     '        Require all granted' \
