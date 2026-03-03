@@ -75,15 +75,16 @@ class EventReminderEmail extends BaseEmail
 
             // Keep CID simple/alphanumeric to maximize email client compatibility.
             $cid = sprintf('%s-%s', $cidPrefix, bin2hex(random_bytes(6)));
-            if ($this->mail->addEmbeddedImage($localPath, $cid, basename($localPath))) {
+            $fileName = basename($localPath);
+            if ($this->mail->addEmbeddedImage($localPath, $cid, $fileName)) {
                 $cidUrl = 'cid:' . $cid;
-                $this->replaceImageUrlWithCid($url, $cidUrl);
+                $this->replaceImageUrlWithCid($url, $cidUrl, $fileName);
                 $this->tokens[$tokenName] = $cidUrl;
             }
         }
     }
 
-    private function replaceImageUrlWithCid(string $url, string $cidUrl): void
+    private function replaceImageUrlWithCid(string $url, string $cidUrl, string $fileName): void
     {
         // Replace literal URL.
         $this->bodyHtml = str_replace($url, $cidUrl, $this->bodyHtml);
@@ -91,6 +92,15 @@ class EventReminderEmail extends BaseEmail
         // Replace HTML-escaped URL forms frequently produced by sanitizers.
         $escapedUrl = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $this->bodyHtml = str_replace($escapedUrl, $cidUrl, $this->bodyHtml);
+
+        // Replace any img src containing the same filename (robust against
+        // host changes, URL escaping, or template URL transformations).
+        $quotedFile = preg_quote($fileName, '/');
+        $this->bodyHtml = preg_replace(
+            '/(<img\b[^>]*\bsrc\s*=\s*["\'])([^"\']*' . $quotedFile . '[^"\']*)(["\'])/i',
+            '$1' . $cidUrl . '$3',
+            $this->bodyHtml
+        ) ?? $this->bodyHtml;
     }
 
     private function resolveLocalPathFromUrl(string $url): ?string
