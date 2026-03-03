@@ -73,13 +73,24 @@ class EventReminderEmail extends BaseEmail
                 continue;
             }
 
-            $cid = sprintf('%s-%s@churchcrm', $cidPrefix, bin2hex(random_bytes(6)));
+            // Keep CID simple/alphanumeric to maximize email client compatibility.
+            $cid = sprintf('%s-%s', $cidPrefix, bin2hex(random_bytes(6)));
             if ($this->mail->addEmbeddedImage($localPath, $cid, basename($localPath))) {
                 $cidUrl = 'cid:' . $cid;
-                $this->bodyHtml = str_replace($url, $cidUrl, $this->bodyHtml);
+                $this->replaceImageUrlWithCid($url, $cidUrl);
                 $this->tokens[$tokenName] = $cidUrl;
             }
         }
+    }
+
+    private function replaceImageUrlWithCid(string $url, string $cidUrl): void
+    {
+        // Replace literal URL.
+        $this->bodyHtml = str_replace($url, $cidUrl, $this->bodyHtml);
+
+        // Replace HTML-escaped URL forms frequently produced by sanitizers.
+        $escapedUrl = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $this->bodyHtml = str_replace($escapedUrl, $cidUrl, $this->bodyHtml);
     }
 
     private function resolveLocalPathFromUrl(string $url): ?string

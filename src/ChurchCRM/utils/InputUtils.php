@@ -115,7 +115,7 @@ class InputUtils
             'img[src|alt|width|height|style]'
         );
 
-        $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true]);
+        $config->set('URI.AllowedSchemes', ['http' => true, 'https' => true, 'mailto' => true, 'cid' => true]);
         $config->set('HTML.ForbiddenElements', ['script', 'iframe', 'embed', 'object', 'form', 'meta']);
         $config->set('AutoFormat.AutoParagraph', false);
         $config->set('Attr.EnableID', false);
