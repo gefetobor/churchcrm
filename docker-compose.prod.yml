@@ -16,6 +16,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    volumes:
+      - churchcrm_images:/var/www/html/src/Images
 
   mysql:
     image: mysql:8.0.36
@@ -56,3 +58,4 @@ volumes:
   mysql_data:
   caddy_data:
   caddy_config:
+  churchcrm_images:
