@@ -3,6 +3,7 @@
 namespace ChurchCRM\Emails\notifications;
 
 use ChurchCRM\Emails\BaseEmail;
+use ChurchCRM\dto\SystemURLs;
 
 class EventReminderEmail extends BaseEmail
 {
@@ -27,6 +28,10 @@ class EventReminderEmail extends BaseEmail
 
         parent::__construct($toAddresses);
 
+        // Embed configured reminder images as CID attachments so email clients
+        // can render them reliably without fetching remote URLs.
+        $this->embedConfiguredImages();
+
         $this->mail->Subject = $this->subject;
         $this->mail->isHTML(true);
         $this->mail->msgHTML($this->buildMessage());
@@ -47,6 +52,76 @@ class EventReminderEmail extends BaseEmail
             'bodyHtml' => $this->bodyHtml,
             'bodyText' => $this->bodyText,
         ]);
+    }
+
+    private function embedConfiguredImages(): void
+    {
+        $tokenToCidPrefix = [
+            'churchLogoUrl' => 'event-logo',
+            'eventImage1Url' => 'event-image-1',
+            'eventImage2Url' => 'event-image-2',
+        ];
+
+        foreach ($tokenToCidPrefix as $tokenName => $cidPrefix) {
+            $url = trim((string) ($this->tokens[$tokenName] ?? ''));
+            if ($url === '' || str_starts_with($url, 'cid:')) {
+                continue;
+            }
+
+            $localPath = $this->resolveLocalPathFromUrl($url);
+            if ($localPath === null || !is_file($localPath)) {
+                continue;
+            }
+
+            $cid = sprintf('%s-%s@churchcrm', $cidPrefix, bin2hex(random_bytes(6)));
+            if ($this->mail->addEmbeddedImage($localPath, $cid, basename($localPath))) {
+                $cidUrl = 'cid:' . $cid;
+                $this->bodyHtml = str_replace($url, $cidUrl, $this->bodyHtml);
+                $this->tokens[$tokenName] = $cidUrl;
+            }
+        }
+    }
+
+    private function resolveLocalPathFromUrl(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if ($parts === false) {
+            return null;
+        }
+
+        if (isset($parts['host'])) {
+            $configuredHost = (string) parse_url((string) SystemURLs::getURL(), PHP_URL_HOST);
+            $candidateHost = strtolower($parts['host']);
+            $configuredHost = strtolower($configuredHost);
+
+            // Allow apex/www variants for the same configured domain.
+            $allowedHosts = array_unique([
+                $configuredHost,
+                ltrim($configuredHost, 'www.'),
+                'www.' . ltrim($configuredHost, 'www.'),
+            ]);
+
+            if (!in_array($candidateHost, $allowedHosts, true)) {
+                return null;
+            }
+        }
+
+        $path = (string) ($parts['path'] ?? '');
+        if ($path === '') {
+            return null;
+        }
+
+        $rootPath = (string) SystemURLs::getRootPath();
+        if ($rootPath !== '' && str_starts_with($path, $rootPath . '/')) {
+            $path = substr($path, strlen($rootPath));
+        }
+
+        $documentRoot = rtrim((string) SystemURLs::getDocumentRoot(), '/');
+        if (!str_starts_with($path, '/')) {
+            $path = '/' . $path;
+        }
+
+        return $documentRoot . $path;
     }
 
     protected function getFullURL(): string
