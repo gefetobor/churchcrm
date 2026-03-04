@@ -189,9 +189,16 @@ class EventReminderService
     {
         $batchSize = self::DEFAULT_BATCH_SIZE;
         $offset = 0;
+        $enrolledBefore = null;
+
+        // "Created" and "Updated" notifications are historical event actions.
+        // Members added after that action should not receive those notices.
+        if (in_array($type, [self::TYPE_CREATED, self::TYPE_UPDATED], true)) {
+            $enrolledBefore = $triggerAt;
+        }
 
         while (true) {
-            $people = $this->getEligiblePeopleBatch($batchSize, $offset);
+            $people = $this->getEligiblePeopleBatch($batchSize, $offset, $enrolledBefore);
             if ($people->isEmpty()) {
                 break;
             }
@@ -224,7 +231,7 @@ class EventReminderService
         }
     }
 
-    private function getEligiblePeopleBatch(int $limit, int $offset)
+    private function getEligiblePeopleBatch(int $limit, int $offset, ?\DateTimeImmutable $enrolledBefore = null)
     {
         $inactiveClasses = $this->getInactiveClassificationIds();
 
@@ -236,6 +243,10 @@ class EventReminderService
             ->orderById()
             ->limit($limit)
             ->offset($offset);
+
+        if ($enrolledBefore !== null) {
+            $query->filterByDateEntered($enrolledBefore->format('Y-m-d H:i:s'), Criteria::LESS_EQUAL);
+        }
 
         return $query->find();
     }
