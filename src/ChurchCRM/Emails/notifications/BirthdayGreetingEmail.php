@@ -35,7 +35,9 @@ class BirthdayGreetingEmail extends BaseEmail
 
     protected function getTemplateName(): string
     {
-        return 'BirthdayGreetingEmail.html.twig';
+        // Reuse the same wrapper/template as event reminders to keep
+        // message structure consistent for deliverability behavior.
+        return 'EventReminderEmail.html.twig';
     }
 
     /**
