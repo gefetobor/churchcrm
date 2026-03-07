@@ -32,14 +32,6 @@ if (isset($_POST['save'])) {
             'field' => 'eventReminderLogoFile',
             'basename' => 'event-reminder-logo',
         ],
-        'sEventReminderImage1Url' => [
-            'field' => 'eventReminderImage1File',
-            'basename' => 'event-reminder-image1',
-        ],
-        'sEventReminderImage2Url' => [
-            'field' => 'eventReminderImage2File',
-            'basename' => 'event-reminder-image2',
-        ],
     ];
 
     $maxUploadBytes = min(10 * 1024 * 1024, (int) SystemService::getMaxUploadFileSize(false));
@@ -245,12 +237,10 @@ require_once __DIR__ . '/Include/Header.php';
                       </select>
                         <?php
                     } elseif ($setting->getType() == 'text') {
-                        $isEventReminderAsset = in_array($setting->getName(), ['sEventReminderLogoUrl', 'sEventReminderImage1Url', 'sEventReminderImage2Url'], true);
+                        $isEventReminderAsset = in_array($setting->getName(), ['sEventReminderLogoUrl'], true);
                         if ($isEventReminderAsset) {
                             $fieldMap = [
                                 'sEventReminderLogoUrl' => 'eventReminderLogoFile',
-                                'sEventReminderImage1Url' => 'eventReminderImage1File',
-                                'sEventReminderImage2Url' => 'eventReminderImage2File',
                             ];
                             $fieldName = $fieldMap[$setting->getName()];
                             ?>

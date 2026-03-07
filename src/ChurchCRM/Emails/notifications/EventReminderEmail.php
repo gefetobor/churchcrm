@@ -3,6 +3,7 @@
 namespace ChurchCRM\Emails\notifications;
 
 use ChurchCRM\Emails\BaseEmail;
+use ChurchCRM\dto\SystemConfig;
 use ChurchCRM\dto\SystemURLs;
 
 class EventReminderEmail extends BaseEmail
@@ -28,10 +29,6 @@ class EventReminderEmail extends BaseEmail
 
         parent::__construct($toAddresses);
 
-        // Embed configured reminder images as CID attachments so email clients
-        // can render them reliably without fetching remote URLs.
-        $this->embedConfiguredImages();
-
         $this->mail->Subject = $this->subject;
         $this->mail->isHTML(true);
         $this->mail->msgHTML($this->buildMessage());
@@ -40,7 +37,7 @@ class EventReminderEmail extends BaseEmail
 
     protected function getTemplateName(): string
     {
-        return 'EventReminderEmail.html.twig';
+        return 'FirstTimerBulkEmail.html.twig';
     }
 
     /**
@@ -48,101 +45,65 @@ class EventReminderEmail extends BaseEmail
      */
     public function getTokens(): array
     {
+        $brandLogoUrl = trim((string) ($this->tokens['brandLogoUrl'] ?? ''));
+        if ($brandLogoUrl === '') {
+            $brandLogoUrl = trim((string) ($this->tokens['churchLogoUrl'] ?? ''));
+        }
+        if ($brandLogoUrl === '') {
+            $brandLogoUrl = trim((string) SystemConfig::getValue('sEventReminderLogoUrl'));
+        }
+        $this->tokens['brandLogoUrl'] = $this->resolveBrandLogoUrl($brandLogoUrl);
+
         return array_merge($this->getCommonTokens(), $this->tokens, [
             'bodyHtml' => $this->bodyHtml,
             'bodyText' => $this->bodyText,
         ]);
     }
 
-    private function embedConfiguredImages(): void
+    private function resolveBrandLogoUrl(string $configuredUrl): string
     {
-        $tokenToCidPrefix = [
-            'churchLogoUrl' => 'event-logo',
-            'eventImage1Url' => 'event-image-1',
-            'eventImage2Url' => 'event-image-2',
-        ];
+        $baseUrl = rtrim((string) SystemURLs::getURL(), '/');
+        $fallbackRelative = '/Images/logo-churchcrm-350.jpg';
 
-        foreach ($tokenToCidPrefix as $tokenName => $cidPrefix) {
-            $url = trim((string) ($this->tokens[$tokenName] ?? ''));
-            if ($url === '' || str_starts_with($url, 'cid:')) {
-                continue;
+        if ($configuredUrl === '') {
+            $fallbackPath = SystemURLs::getDocumentRoot() . $fallbackRelative;
+            if (is_file($fallbackPath)) {
+                $this->mail->addEmbeddedImage($fallbackPath, 'event-brand-logo-fallback');
+
+                return 'cid:event-brand-logo-fallback';
             }
 
-            $localPath = $this->resolveLocalPathFromUrl($url);
-            if ($localPath === null || !is_file($localPath)) {
-                continue;
-            }
-
-            // Keep CID simple/alphanumeric to maximize email client compatibility.
-            $cid = sprintf('%s-%s', $cidPrefix, bin2hex(random_bytes(6)));
-            $fileName = basename($localPath);
-            if ($this->mail->addEmbeddedImage($localPath, $cid, $fileName)) {
-                $cidUrl = 'cid:' . $cid;
-                $this->replaceImageUrlWithCid($url, $cidUrl, $fileName);
-                $this->tokens[$tokenName] = $cidUrl;
-            }
-        }
-    }
-
-    private function replaceImageUrlWithCid(string $url, string $cidUrl, string $fileName): void
-    {
-        // Replace literal URL.
-        $this->bodyHtml = str_replace($url, $cidUrl, $this->bodyHtml);
-
-        // Replace HTML-escaped URL forms frequently produced by sanitizers.
-        $escapedUrl = htmlspecialchars($url, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $this->bodyHtml = str_replace($escapedUrl, $cidUrl, $this->bodyHtml);
-
-        // Replace any img src containing the same filename (robust against
-        // host changes, URL escaping, or template URL transformations).
-        $quotedFile = preg_quote($fileName, '/');
-        $this->bodyHtml = preg_replace(
-            '/(<img\b[^>]*\bsrc\s*=\s*["\'])([^"\']*' . $quotedFile . '[^"\']*)(["\'])/i',
-            '$1' . $cidUrl . '$3',
-            $this->bodyHtml
-        ) ?? $this->bodyHtml;
-    }
-
-    private function resolveLocalPathFromUrl(string $url): ?string
-    {
-        $parts = parse_url($url);
-        if ($parts === false) {
-            return null;
+            return $baseUrl . $fallbackRelative;
         }
 
-        if (isset($parts['host'])) {
-            $configuredHost = (string) parse_url((string) SystemURLs::getURL(), PHP_URL_HOST);
-            $candidateHost = strtolower($parts['host']);
-            $configuredHost = strtolower($configuredHost);
+        if (!preg_match('/^(https?:|cid:)/i', $configuredUrl)) {
+            $configuredUrl = $baseUrl . '/' . ltrim($configuredUrl, '/');
+        }
 
-            // Allow apex/www variants for the same configured domain.
-            $allowedHosts = array_unique([
-                $configuredHost,
-                ltrim($configuredHost, 'www.'),
-                'www.' . ltrim($configuredHost, 'www.'),
-            ]);
+        if (str_starts_with($configuredUrl, 'cid:')) {
+            return $configuredUrl;
+        }
 
-            if (!in_array($candidateHost, $allowedHosts, true)) {
-                return null;
+        $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+        $parts = parse_url($configuredUrl);
+        if ($parts !== false && isset($parts['path'])) {
+            $path = $parts['path'];
+            $isLocalHost = isset($parts['host']) && in_array($parts['host'], ['localhost', '127.0.0.1'], true);
+            $isSameHost = isset($parts['host']) && !empty($baseHost) && $parts['host'] === $baseHost;
+            if (!str_starts_with($path, '/Images/') && str_contains($path, '/Images/')) {
+                $path = substr($path, strpos($path, '/Images/'));
+            }
+            if (str_starts_with($path, '/Images/') && ($isLocalHost || $isSameHost || !isset($parts['host']))) {
+                $imagePath = SystemURLs::getDocumentRoot() . $path;
+                if (is_file($imagePath)) {
+                    $this->mail->addEmbeddedImage($imagePath, 'event-brand-logo');
+
+                    return 'cid:event-brand-logo';
+                }
             }
         }
 
-        $path = (string) ($parts['path'] ?? '');
-        if ($path === '') {
-            return null;
-        }
-
-        $rootPath = (string) SystemURLs::getRootPath();
-        if ($rootPath !== '' && str_starts_with($path, $rootPath . '/')) {
-            $path = substr($path, strlen($rootPath));
-        }
-
-        $documentRoot = rtrim((string) SystemURLs::getDocumentRoot(), '/');
-        if (!str_starts_with($path, '/')) {
-            $path = '/' . $path;
-        }
-
-        return $documentRoot . $path;
+        return $configuredUrl;
     }
 
     protected function getFullURL(): string

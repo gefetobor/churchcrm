@@ -3,6 +3,8 @@
 namespace ChurchCRM\Emails\notifications;
 
 use ChurchCRM\Emails\BaseEmail;
+use ChurchCRM\dto\SystemConfig;
+use ChurchCRM\dto\SystemURLs;
 
 class BirthdayGreetingEmail extends BaseEmail
 {
@@ -35,9 +37,7 @@ class BirthdayGreetingEmail extends BaseEmail
 
     protected function getTemplateName(): string
     {
-        // Reuse the same wrapper/template as event reminders to keep
-        // message structure consistent for deliverability behavior.
-        return 'EventReminderEmail.html.twig';
+        return 'FirstTimerBulkEmail.html.twig';
     }
 
     /**
@@ -45,10 +45,60 @@ class BirthdayGreetingEmail extends BaseEmail
      */
     public function getTokens(): array
     {
+        $brandLogoUrl = trim((string) ($this->tokens['brandLogoUrl'] ?? SystemConfig::getValue('sEventReminderLogoUrl')));
+        $brandLogoUrl = $this->resolveBrandLogoUrl($brandLogoUrl);
+
         return array_merge($this->getCommonTokens(), $this->tokens, [
             'bodyHtml' => $this->bodyHtml,
             'bodyText' => $this->bodyText,
+            'brandLogoUrl' => $brandLogoUrl,
         ]);
+    }
+
+    private function resolveBrandLogoUrl(string $configuredUrl): string
+    {
+        $baseUrl = rtrim((string) SystemURLs::getURL(), '/');
+        $fallbackRelative = '/Images/logo-churchcrm-350.jpg';
+
+        if ($configuredUrl === '') {
+            $fallbackPath = SystemURLs::getDocumentRoot() . $fallbackRelative;
+            if (is_file($fallbackPath)) {
+                $this->mail->addEmbeddedImage($fallbackPath, 'birthday-brand-logo-fallback');
+
+                return 'cid:birthday-brand-logo-fallback';
+            }
+
+            return $baseUrl . $fallbackRelative;
+        }
+
+        if (!preg_match('/^(https?:|cid:)/i', $configuredUrl)) {
+            $configuredUrl = $baseUrl . '/' . ltrim($configuredUrl, '/');
+        }
+
+        if (str_starts_with($configuredUrl, 'cid:')) {
+            return $configuredUrl;
+        }
+
+        $baseHost = parse_url($baseUrl, PHP_URL_HOST);
+        $parts = parse_url($configuredUrl);
+        if ($parts !== false && isset($parts['path'])) {
+            $path = $parts['path'];
+            $isLocalHost = isset($parts['host']) && in_array($parts['host'], ['localhost', '127.0.0.1'], true);
+            $isSameHost = isset($parts['host']) && !empty($baseHost) && $parts['host'] === $baseHost;
+            if (!str_starts_with($path, '/Images/') && str_contains($path, '/Images/')) {
+                $path = substr($path, strpos($path, '/Images/'));
+            }
+            if (str_starts_with($path, '/Images/') && ($isLocalHost || $isSameHost || !isset($parts['host']))) {
+                $imagePath = SystemURLs::getDocumentRoot() . $path;
+                if (is_file($imagePath)) {
+                    $this->mail->addEmbeddedImage($imagePath, 'birthday-brand-logo');
+
+                    return 'cid:birthday-brand-logo';
+                }
+            }
+        }
+
+        return $configuredUrl;
     }
 
     protected function getFullURL(): string

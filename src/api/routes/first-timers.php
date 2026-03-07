@@ -217,10 +217,14 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
 
     $firstTimers = $query->find();
     $emails = [];
+    $emailToFirstName = [];
     foreach ($firstTimers as $firstTimer) {
         $email = trim((string) $firstTimer->getEmail());
         if ($email !== '') {
             $emails[] = $email;
+            if (!array_key_exists($email, $emailToFirstName)) {
+                $emailToFirstName[$email] = trim((string) $firstTimer->getFirstName());
+            }
         }
     }
     $emails = array_values(array_unique($emails));
@@ -244,6 +248,7 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
                 $email,
             ], $subject, $bodyHtml, $bodyText, [
                 'toName' => $email,
+                'firstName' => $emailToFirstName[$email] ?? '',
             ]);
             if ($emailMessage->send()) {
                 $sent++;

@@ -230,24 +230,6 @@ class   SystemConfig
                 '            </td>' . "\n" .
                 '          </tr>' . "\n" .
                 '          <tr>' . "\n" .
-                '            <td style="padding:6px 20px 10px 20px;">' . "\n" .
-                '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%">' . "\n" .
-                '                <tr>' . "\n" .
-                '                  <td width="50%" style="padding:6px 8px;">' . "\n" .
-                '                    {% if eventImage1Url %}' . "\n" .
-                '                      <img src="{{ eventImage1Url }}" alt="Event" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">' . "\n" .
-                '                    {% endif %}' . "\n" .
-                '                  </td>' . "\n" .
-                '                  <td width="50%" style="padding:6px 8px;">' . "\n" .
-                '                    {% if eventImage2Url %}' . "\n" .
-                '                      <img src="{{ eventImage2Url }}" alt="Speaker" style="width:100%;height:auto;border:1px solid #e1e1e1;display:block;">' . "\n" .
-                '                    {% endif %}' . "\n" .
-                '                  </td>' . "\n" .
-                '                </tr>' . "\n" .
-                '              </table>' . "\n" .
-                '            </td>' . "\n" .
-                '          </tr>' . "\n" .
-                '          <tr>' . "\n" .
                 '            <td style="padding:4px 28px 8px 28px;font-family:\'Arial\', sans-serif;color:#1b2a4a;">' . "\n" .
                 '              <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #d8c089;border-bottom:1px solid #d8c089;">' . "\n" .
                 '                <tr>' . "\n" .
@@ -290,7 +272,7 @@ class   SystemConfig
                 '  </table>' . "\n" .
                 '</body>' . "\n" .
                 '</html>',
-                gettext("HTML email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventImage1Url }}, {{ eventImage2Url }}, {{ eventContactEmail }}")),
+                gettext("HTML email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}")),
             'sEventReminderTemplateText'           => new ConfigItem(2085, 'sEventReminderTemplateText', 'textarea',
                 'This is a reminder for {{ eventTitle }}.' . "\n" .
                 'Date: {{ eventStart }}' . "\n" .
@@ -298,11 +280,9 @@ class   SystemConfig
                 '{% if eventUrl %}More info: {{ eventUrl }}{% endif %}' . "\n" .
                 '{% if eventDescription %}{{ eventDescription }}{% endif %}' . "\n" .
                 '{% if optOutUrl %}{{ optOutText }}: {{ optOutUrl }}{% endif %}',
-                gettext("Plain text email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventImage1Url }}, {{ eventImage2Url }}, {{ eventContactEmail }}")),
+                gettext("Plain text email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}")),
             'bEventReminderOnUpdate'               => new ConfigItem(2086, 'bEventReminderOnUpdate', 'boolean', '0', gettext('Send reminder when an event is updated (processed by cron)')),
             'sEventReminderLogoUrl'                => new ConfigItem(2087, 'sEventReminderLogoUrl', 'text', '', gettext('Event reminder email logo image URL')),
-            'sEventReminderImage1Url'              => new ConfigItem(2088, 'sEventReminderImage1Url', 'text', '', gettext('Event reminder email image 1 URL')),
-            'sEventReminderImage2Url'              => new ConfigItem(2089, 'sEventReminderImage2Url', 'text', '', gettext('Event reminder email image 2 URL')),
             'sEventReminderContactEmail'           => new ConfigItem(2090, 'sEventReminderContactEmail', 'text', '', gettext('Event reminder email contact address')),
             'bEnableBirthdayGreetings'             => new ConfigItem(2091, 'bEnableBirthdayGreetings', 'boolean', '0', gettext('Enable birthday greeting emails (processed by cron)')),
             'sBirthdayGreetingSubject'             => new ConfigItem(2092, 'sBirthdayGreetingSubject', 'text', '{{ churchName }}: Happy Birthday, {{ firstName }}!', gettext("Birthday greeting email subject.\nAvailable tokens: {{ churchName }}, {{ personName }}, {{ firstName }}, {{ lastName }}, {{ age }}")),
@@ -411,8 +391,8 @@ class   SystemConfig
             gettext('Email Setup')        => ['sSMTPHost', 'bSMTPAuth', 'sSMTPUser', 'sSMTPPass', 'iSMTPTimeout', 'sToEmailAddress', 'bPHPMailerAutoTLS', 'sPHPMailerSMTPSecure'],
             gettext('People Setup')       => ['sDirClassifications', 'sDirRoleHead', 'sDirRoleSpouse', 'sDirRoleChild', 'sDefaultCity', 'sDefaultState', 'sDefaultZip', 'sDefaultCountry', 'bHidePersonAddress', 'bHideFriendDate', 'bHideFamilyNewsletter', 'bHideWeddingDate', 'bHideLatLon', 'bForceUppercaseZip', 'iPersonNameStyle', 'iPersonInitialStyle', 'sNewPersonNotificationRecipientIDs', 'IncludeDataInNewPersonNotifications', 'sGreeterCustomMsg1', 'sGreeterCustomMsg2', 'sInactiveClassification'],
             gettext('Enabled Features')   => ['bEnabledFinance', 'bEnabledSundaySchool', 'bEnabledEvents', 'bEnabledFundraiser', 'bEnableSelfRegistration','bEnabledEmail', 'bEnableExternalCalendarAPI'],
-            gettext('Event Reminders')    => ['bEnableEventReminders', 'bEventReminderOnCreate', 'bEventReminderOnUpdate', 'iEventReminderDaysBefore', 'bEventReminder24Hours', 'sEventReminderTemplateHtml', 'sEventReminderTemplateText', 'sEventReminderLogoUrl', 'sEventReminderImage1Url', 'sEventReminderImage2Url', 'sEventReminderContactEmail'],
-            gettext('Birthday Greetings') => ['bEnableBirthdayGreetings', 'sBirthdayGreetingSubject', 'sBirthdayGreetingTemplateHtml', 'sBirthdayGreetingTemplateText', 'sBirthdayGreetingMessage'],
+            gettext('Event Reminders')    => ['bEnableEventReminders', 'bEventReminderOnCreate', 'bEventReminderOnUpdate', 'iEventReminderDaysBefore', 'bEventReminder24Hours', 'sEventReminderTemplateHtml', 'sEventReminderTemplateText', 'sEventReminderLogoUrl', 'sEventReminderContactEmail'],
+            gettext('Birthday Greetings') => ['bEnableBirthdayGreetings', 'sBirthdayGreetingSubject', 'sBirthdayGreetingMessage'],
             gettext('Map Settings')       => ['sGeoCoderProvider', 'sGoogleMapsGeocodeKey', 'sGoogleMapsRenderKey', 'sBingMapKey', 'sGMapIcons', 'iMapZoom'],
             gettext('Report Settings')    => ['sQBDTSettings', 'leftX', 'incrementY', 'sTaxReport1', 'sTaxReport2', 'sTaxReport3', 'sTaxSigner', 'sReminder1', 'sReminderSigner', 'sReminderNoPledge', 'sReminderNoPayments', 'sConfirm1', 'sConfirm2', 'sConfirm3', 'sConfirm4', 'sConfirm5', 'sConfirm6', 'sDear', 'sConfirmSincerely', 'sConfirmSigner', 'sPledgeSummary1', 'sPledgeSummary2', 'sDirectoryDisclaimer1', 'sDirectoryDisclaimer2', 'bDirLetterHead', 'sZeroGivers', 'sZeroGivers2', 'sZeroGivers3', 'iPDFOutputType'],
             gettext('Financial Settings') => ['sDepositSlipType', 'iChecksPerDepositForm', 'bDisplayBillCounts', 'bUseScannedChecks', 'bEnableNonDeductible', 'iFYMonth', 'bUseDonationEnvelopes', 'aFinanceQueries'],

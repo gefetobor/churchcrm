@@ -102,11 +102,13 @@ class BirthdayGreetingService
         ];
 
         $subject = $this->renderTemplate(SystemConfig::getValue('sBirthdayGreetingSubject'), $tokens, false);
-        $bodyHtml = $this->renderTemplate(SystemConfig::getValue('sBirthdayGreetingTemplateHtml'), $tokens, true);
-        $bodyText = $this->renderTemplate(SystemConfig::getValue('sBirthdayGreetingTemplateText'), $tokens, false);
+        $birthdayMessage = trim((string) ($tokens['birthdayMessage'] ?? ''));
+        $bodyHtml = nl2br(InputUtils::escapeHTML($birthdayMessage));
+        $bodyText = $birthdayMessage;
 
         $email = new BirthdayGreetingEmail([(string) $person->getEmail()], $subject, $bodyHtml, $bodyText, [
             'toName' => InputUtils::sanitizeText($person->getFullName()),
+            'firstName' => InputUtils::sanitizeText((string) $person->getFirstName()),
             ...$tokens,
         ]);
         if (!$email->send()) {

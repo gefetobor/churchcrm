@@ -72,13 +72,9 @@ class EventReminderService
 
         $daysBefore = max(0, SystemConfig::getIntValue('iEventReminderDaysBefore'));
 
-        if (SystemConfig::getBooleanValue('bEventReminderOnCreate')) {
-            $this->processReminderType(self::TYPE_CREATED, $now, $daysBefore, $summary);
-        }
-
-        if (SystemConfig::getBooleanValue('bEventReminderOnUpdate')) {
-            $this->processReminderType(self::TYPE_UPDATED, $now, $daysBefore, $summary);
-        }
+        // Created/updated reminders are sent immediately at event create/update
+        // call sites via sendImmediateForEvent(). Keep cron focused on
+        // time-based reminders only to avoid cross-triggering behavior.
 
         if ($daysBefore > 0) {
             $this->processReminderType(self::TYPE_DAYS_BEFORE, $now, $daysBefore, $summary);
@@ -268,14 +264,14 @@ class EventReminderService
             'eventLocation' => InputUtils::sanitizeText($eventLocation),
             'eventUrl' => InputUtils::sanitizeText((string) $event->getURL()),
             'personName' => InputUtils::sanitizeText($person->getFullName()),
+            'firstName' => InputUtils::sanitizeText((string) $person->getFirstName()),
             'reminderType' => $this->getReminderTypeLabel($type, $daysBefore),
             'daysBefore' => (string) $daysBefore,
             'optOutUrl' => $optOutUrl,
             'optOutText' => gettext('Unsubscribe from event reminders'),
             'toName' => InputUtils::sanitizeText($person->getFullName()),
             'churchLogoUrl' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderLogoUrl')),
-            'eventImage1Url' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderImage1Url')),
-            'eventImage2Url' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderImage2Url')),
+            'brandLogoUrl' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderLogoUrl')),
             'eventContactEmail' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderContactEmail')),
         ];
 
@@ -285,126 +281,24 @@ class EventReminderService
         $tokensText = $baseTokens;
         $tokensText['eventDescription'] = $eventDescriptionText === '' ? '' : InputUtils::sanitizeText($eventDescriptionText);
 
-        // Build a fixed, production-safe layout in code instead of relying on
-        // editable DB HTML templates (which may be URL-encoded/corrupted).
-        $bodyHtml = $this->buildStructuredReminderHtml($tokensHtml);
-        $bodyText = $this->buildStructuredReminderText($tokensText);
+        $bodyHtml = $this->renderTemplate(SystemConfig::getValue('sEventReminderTemplateHtml'), $tokensHtml, true);
+        $bodyHtml = $this->stripInlineImagesFromBody($bodyHtml);
+        $bodyText = $this->renderTemplate(SystemConfig::getValue('sEventReminderTemplateText'), $tokensText, false);
 
-        $subjectLabel = match ($type) {
+        $subject = match ($type) {
             self::TYPE_UPDATED => gettext('Event Update'),
             self::TYPE_CREATED => gettext('Event Notification'),
             default => gettext('Event Reminder'),
         };
-        $subject = SystemConfig::getValue('sChurchName') . ': ' . $subjectLabel . ' - ' . $event->getTitle();
         $email = new EventReminderEmail([$person->getEmail()], $subject, $bodyHtml, $bodyText, $baseTokens);
         if (!$email->send()) {
             throw new \RuntimeException($email->getError());
         }
     }
 
-    private function buildStructuredReminderHtml(array $tokens): string
+    private function stripInlineImagesFromBody(string $html): string
     {
-        $personName = InputUtils::escapeHTML((string) ($tokens['personName'] ?? ''));
-        $eventTitle = InputUtils::escapeHTML((string) ($tokens['eventTitle'] ?? ''));
-        $eventLocation = InputUtils::escapeHTML((string) ($tokens['eventLocation'] ?? ''));
-        $eventStart = InputUtils::escapeHTML((string) ($tokens['eventStart'] ?? ''));
-        $eventDescription = InputUtils::escapeHTML((string) ($tokens['eventDescription'] ?? ''));
-        $eventContactEmail = InputUtils::escapeHTML((string) ($tokens['eventContactEmail'] ?? ''));
-
-        $logoUrl = InputUtils::sanitizeText((string) ($tokens['churchLogoUrl'] ?? ''));
-        $image1Url = InputUtils::sanitizeText((string) ($tokens['eventImage1Url'] ?? ''));
-        $image2Url = InputUtils::sanitizeText((string) ($tokens['eventImage2Url'] ?? ''));
-
-        $logoHtml = '';
-        if ($logoUrl !== '') {
-            $logoHtml = '<img src="' . InputUtils::escapeAttribute($logoUrl) . '" alt="Spirit Embassy Leeds" style="display:block;margin:0 auto;max-width:320px;width:100%;height:auto;">';
-        }
-
-        $imagesHtml = '';
-        if ($image1Url !== '' && $image2Url !== '') {
-            $imagesHtml = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
-                . '<tr>'
-                . '<td width="50%" style="padding:0;vertical-align:top;">'
-                . '<img src="' . InputUtils::escapeAttribute($image1Url) . '" alt="Event image 1" width="380" height="250" style="display:block;width:100%;max-width:380px;height:250px;border:0;">'
-                . '</td>'
-                . '<td width="50%" style="padding:0;vertical-align:top;">'
-                . '<img src="' . InputUtils::escapeAttribute($image2Url) . '" alt="Event image 2" width="380" height="250" style="display:block;width:100%;max-width:380px;height:250px;border:0;">'
-                . '</td>'
-                . '</tr>'
-                . '</table>';
-        } elseif ($image1Url !== '' || $image2Url !== '') {
-            $singleImageUrl = $image1Url !== '' ? $image1Url : $image2Url;
-            $imagesHtml = '<img src="' . InputUtils::escapeAttribute($singleImageUrl) . '" alt="Event image" width="760" height="280" style="display:block;width:100%;max-width:760px;height:280px;border:0;">';
-        }
-
-        $themeHtml = '';
-        if ($eventDescription !== '') {
-            $themeHtml = '<tr><td style="padding:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.45;color:#1d2733;"><strong style="color:#0e2b5c;">Theme:</strong> ' . $eventDescription . '</td></tr>';
-        }
-
-        if ($eventContactEmail === '') {
-            $eventContactEmail = InputUtils::escapeHTML((string) SystemConfig::getValue('sToEmailAddress'));
-        }
-        $contactHtml = 'For more information, contact us at ' . $eventContactEmail;
-
-        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0;">'
-            . '<tr><td align="center">'
-            . '<table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:760px;max-width:760px;background:#ffffff;border:1px solid #c9a96a;">'
-            . '<tr><td style="padding:28px 36px 10px;text-align:center;">'
-            . $logoHtml
-            . '<div style="font-family:Georgia,Times New Roman,serif;font-style:italic;font-size:52px;line-height:1.1;color:#0e2b5c;margin-top:12px;">New Event Announcement</div>'
-            . '<div style="height:1px;background:#d8c089;margin:20px 0 0;"></div>'
-            . '</td></tr>'
-            . '<tr><td style="padding:24px 36px 12px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1d2733;">'
-            . '<strong style="color:#0e2b5c;">Dear</strong> ' . $personName . ','
-            . '<p style="margin:16px 0 0;">We are excited to invite you to our upcoming <strong>special service &amp; event</strong> at Spirit Embassy Leeds!</p>'
-            . '</td></tr>'
-            . '<tr><td style="padding:0;">' . $imagesHtml . '</td></tr>'
-            . '<tr><td style="padding:28px 36px;">'
-            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
-            . '<tr><td style="padding:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.45;color:#1d2733;"><strong style="color:#0e2b5c;">Event:</strong> ' . $eventTitle . '</td></tr>'
-            . '<tr><td style="padding:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.45;color:#1d2733;"><strong style="color:#0e2b5c;">Location:</strong> ' . $eventLocation . '</td></tr>'
-            . '<tr><td style="padding:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.45;color:#1d2733;"><strong style="color:#0e2b5c;">Date &amp; Time:</strong> ' . $eventStart . '</td></tr>'
-            . $themeHtml
-            . '<tr><td style="padding:8px 0 0 0;"><hr style="border:0;border-top:1px solid #ddd;margin:0;"></td></tr>'
-            . '<tr><td style="padding:20px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#1d2733;">'
-            . '<p style="margin:0 0 14px;">We look forward to seeing you and your family as we worship together and experience God\'s presence!</p>'
-            . '<p style="margin:0;">Blessings,<br>Spirit Embassy Leeds Team</p>'
-            . '</td></tr>'
-            . '</table>'
-            . '</td></tr>'
-            . '<tr><td style="background:#0e2b5c;color:#ffffff;text-align:center;padding:22px 16px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;">' . $contactHtml . '</td></tr>'
-            . '</table>'
-            . '</td></tr>'
-            . '</table>';
-    }
-
-    private function buildStructuredReminderText(array $tokens): string
-    {
-        $lines = [];
-        $lines[] = 'Dear ' . ((string) ($tokens['personName'] ?? 'Member')) . ',';
-        $lines[] = '';
-        $lines[] = 'We are excited to invite you to our upcoming special service & event at Spirit Embassy Leeds!';
-        $lines[] = '';
-        $lines[] = 'Event: ' . ((string) ($tokens['eventTitle'] ?? ''));
-        $lines[] = 'Location: ' . ((string) ($tokens['eventLocation'] ?? ''));
-        $lines[] = 'Date & Time: ' . ((string) ($tokens['eventStart'] ?? ''));
-        $eventDescription = trim((string) ($tokens['eventDescription'] ?? ''));
-        if ($eventDescription !== '') {
-            $lines[] = 'Theme: ' . $eventDescription;
-        }
-        $lines[] = '';
-        $lines[] = 'We look forward to seeing you and your family as we worship together and experience God\'s presence!';
-        $lines[] = '';
-        $lines[] = 'Blessings,';
-        $lines[] = 'Spirit Embassy Leeds Team';
-        $contactEmail = trim((string) ($tokens['eventContactEmail'] ?? ''));
-        if ($contactEmail !== '') {
-            $lines[] = '';
-            $lines[] = 'For more information, contact us at ' . $contactEmail;
-        }
-
-        return implode("\n", $lines);
+        return preg_replace('/<img\b[^>]*>/i', '', $html) ?? $html;
     }
 
     private function normalizeDescriptionText(string $html): string
