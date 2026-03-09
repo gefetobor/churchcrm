@@ -48,7 +48,6 @@ function registerFamilyAPI(Request $request, Response $response, array $args): R
         'Name' => trim((string) ($familyMetadata['Name'] ?? '')),
         'Address1' => trim((string) ($familyMetadata['Address1'] ?? '')),
         'Zip' => trim((string) ($familyMetadata['Zip'] ?? '')),
-        'HomePhone' => trim((string) ($familyMetadata['HomePhone'] ?? '')),
     ];
 
     foreach ($requiredFields as $value) {
@@ -69,7 +68,7 @@ function registerFamilyAPI(Request $request, Response $response, array $args): R
     $family->setState($familyMetadata['State']);
     $family->setCountry($familyMetadata['Country']);
     $family->setZip($familyMetadata['Zip']);
-    $family->setHomePhone($familyMetadata['HomePhone']);
+    $family->setHomePhone($familyMetadata['HomePhone'] ?? '');
     $family->setEmail($familyMetadata['Email']);
     $family->setEnteredBy(Person::SELF_REGISTER);
     $family->setDateEntered(new DateTime());

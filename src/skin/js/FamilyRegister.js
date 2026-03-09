@@ -219,6 +219,11 @@
       }
     });
 
+    const noFormatCheckbox = $(`#member-phone-noformat-${memberIndex}`);
+    if (noFormatCheckbox.length > 0) {
+      noFormatCheckbox.prop("checked", true);
+    }
+
     // Setup collapse toggle button
     const toggleBtn = clone.querySelector(".member-toggle-btn");
     const cardBody = clone.querySelector(".member-card-body");
@@ -421,13 +426,13 @@
 
           $stateContainer.html($select);
         } else {
-          const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="State / Province">');
+          const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">');
           $input.val(existingStateValue);
           $stateContainer.html($input);
         }
       })
       .fail(function () {
-        const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="State / Province">');
+        const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">');
         $input.val(existingStateValue);
         $stateContainer.html($input);
       });
@@ -530,7 +535,6 @@
       State: $("#familyState").val(),
       Country: $("#familyCountry").val(),
       Zip: $("#familyZip").val(),
-      HomePhone: $("#familyHomePhone").val(),
       people: [],
     };
 
@@ -580,19 +584,19 @@
 
     const validator = createValidator("#step-family-info");
 
-    // Family Name
+    // Last Name (Family Name field)
     const familyNameContainer = getErrorContainer("familyName");
     validator.addField(
       "#familyName",
       [
         {
           rule: "required",
-          errorMessage: tr("Family name is required"),
+          errorMessage: tr("Last name is required"),
         },
         {
           rule: "minLength",
           value: 2,
-          errorMessage: tr("Family name must be at least 2 characters"),
+          errorMessage: tr("Last name must be at least 2 characters"),
         },
       ],
       familyNameContainer ? { errorsContainer: familyNameContainer } : {},
@@ -638,23 +642,6 @@
     );
 
     // Phone
-    const phoneContainer = getErrorContainer("familyHomePhone");
-    validator.addField(
-      "#familyHomePhone",
-      [
-        {
-          rule: "required",
-          errorMessage: tr("Phone number is required"),
-        },
-        {
-          rule: "minLength",
-          value: 7,
-          errorMessage: tr("Please enter a valid phone number"),
-        },
-      ],
-      phoneContainer ? { errorsContainer: phoneContainer } : {},
-    );
-
     validators["step-family-info"] = validator;
   }
 
@@ -735,7 +722,6 @@
 
     const familyAddress = `${family.Address1}, ${family.City}, ${family.State} ${family.Zip} ${family.Country}`;
     $("#displayFamilyAddress").text(familyAddress);
-    $("#displayFamilyPhone").text(family.HomePhone);
 
     // Clear all member rows/cards first (template shows slots 1-8)
     for (let i = 1; i <= 8; i++) {

@@ -37,7 +37,7 @@ class BirthdayGreetingEmail extends BaseEmail
 
     protected function getTemplateName(): string
     {
-        return 'FirstTimerBulkEmail.html.twig';
+        return 'UnifiedNotificationEmail.html.twig';
     }
 
     /**

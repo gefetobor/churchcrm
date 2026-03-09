@@ -87,8 +87,17 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
         }
 
         .bs-stepper-header {
-            display: block;
-            padding: 10px 8px 2px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 6px 2px 6px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .bs-stepper-header::-webkit-scrollbar {
+            display: none;
         }
 
         .bs-stepper-header .line {
@@ -96,12 +105,18 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
         }
 
         .bs-stepper-header .step {
-            margin-bottom: 8px;
+            margin: 0;
         }
 
         .bs-stepper .step-trigger {
-            width: 100%;
-            justify-content: flex-start;
+            width: auto;
+            min-width: 42px;
+            justify-content: center;
+            padding: 4px 8px;
+        }
+
+        .bs-stepper .step-trigger .bs-stepper-label {
+            display: none;
         }
 
         #family-info-next,
@@ -152,12 +167,12 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                         </div>
 
                         <div class="form-group">
-                            <label for="familyName"><?= gettext('Family Name') ?> <span class="text-danger">*</span></label>
+                            <label for="familyName"><?= gettext('Last Name') ?> <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fa-solid fa-user"></i></span>
                                 </div>
-                                <input id="familyName" name="familyName" type="text" class="form-control" placeholder="<?= gettext('Enter family name') ?>" required>
+                                <input id="familyName" name="familyName" type="text" class="form-control" placeholder="<?= gettext('Enter last name') ?>" required>
                             </div>
                             <div class="invalid-feedback"></div>
                         </div>
@@ -175,10 +190,18 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
 
                         <div class="form-row">
                             <div class="form-group col-md-6">
+                                <label for="familyZip"><?= gettext('Postal Code') ?> <span class="text-danger">*</span></label>
+                                <input id="familyZip" name="familyZip" class="form-control" placeholder="<?= gettext('Postal Code') ?>" value="<?= SystemConfig::getValue('sDefaultZip') ?>" required>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="form-group col-md-6">
                                 <label for="familyCity"><?= gettext('City') ?> <span class="text-danger">*</span></label>
                                 <input id="familyCity" name="familyCity" class="form-control" placeholder="<?= gettext('City') ?>" required value="<?= SystemConfig::getValue('sDefaultCity') ?>">
                                 <div class="invalid-feedback"></div>
                             </div>
+                        </div>
+
+                        <div class="form-row">
                             <div class="form-group col-md-6">
                                 <label for="familyCountry"><?= gettext('Country') ?></label>
                                 <select id="familyCountry" name="familyCountry" class="form-control select2" data-system-default="GB">
@@ -189,19 +212,11 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                                     <?php } ?>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="form-row">
                             <div class="form-group col-md-6">
-                                <label for="familyZip"><?= gettext('Postal Code') ?> <span class="text-danger">*</span></label>
-                                <input id="familyZip" name="familyZip" class="form-control" placeholder="<?= gettext('Postal Code') ?>" value="<?= SystemConfig::getValue('sDefaultZip') ?>" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="form-group col-md-6">
-                                <label for="familyState"><?= gettext('State') ?></label>
+                                <label for="familyState"><?= gettext('County') ?></label>
                                 <div id="familyStateContainer">
                                     <?php
-                                    $defaultState = (string) SystemConfig::getValue('sDefaultState');
+                                    $defaultState = 'England';
                                     $gbStates = (new States('gb'))->getAll();
                                     if (!empty($gbStates)) { ?>
                                         <select id="familyState" name="familyState" class="form-control" data-default="<?= htmlspecialchars($defaultState, ENT_QUOTES, 'UTF-8') ?>">
@@ -218,17 +233,6 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                                     <?php } ?>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="familyHomePhone"><?= gettext('Phone Number') ?> <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="fa-solid fa-phone"></i></span>
-                                </div>
-                                <input id="familyHomePhone" name="familyHomePhone" class="form-control" placeholder="<?= gettext('Phone number') ?>" required>
-                            </div>
-                            <div class="invalid-feedback"></div>
                         </div>
 
                         <div class="alert alert-info mt-3" role="alert">
@@ -325,7 +329,7 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                                                 <div class="input-group-append">
                                                     <div class="input-group-text">
                                                         <div class="custom-control custom-checkbox mb-0">
-                                                            <input type="checkbox" class="custom-control-input member-phone-noformat" name="member-phone-noformat" value="1">
+                                                            <input type="checkbox" class="custom-control-input member-phone-noformat" name="member-phone-noformat" value="1" checked>
                                                             <label class="custom-control-label member-phone-noformat-label"><?= gettext('No format') ?></label>
                                                         </div>
                                                     </div>
@@ -401,12 +405,6 @@ require(SystemURLs::getDocumentRoot() . "/Include/HeaderNotLoggedIn.php");
                                         <p class="mb-2">
                                             <strong><i class="fa-solid fa-map-marker-alt mr-2 text-primary"></i><?= gettext("Address") ?>:</strong><br />
                                             <span id="displayFamilyAddress" class="ml-4"></span>
-                                        </p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-2">
-                                            <strong><i class="fa-solid fa-phone mr-2 text-primary"></i><?= gettext("Phone") ?>:</strong><br />
-                                            <span id="displayFamilyPhone" class="ml-4"></span>
                                         </p>
                                     </div>
                                 </div>
