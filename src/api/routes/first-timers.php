@@ -15,6 +15,8 @@ use Propel\Runtime\ActiveQuery\Criteria;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Routing\RouteCollectorProxy;
+use Twig\Environment;
+use Twig\Loader\ArrayLoader;
 
 $app->group('/first-timers', function (RouteCollectorProxy $group): void {
     $group->get('', 'listFirstTimers');
@@ -202,11 +204,11 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
     }
 
     $data = $request->getParsedBody() ?? [];
-    $subject = trim((string) ($data['subject'] ?? ''));
-    $body = (string) ($data['body'] ?? '');
+    $subjectTemplate = trim((string) ($data['subject'] ?? ''));
+    $bodyTemplate = (string) ($data['body'] ?? '');
     $copyToSender = !empty($data['copyToSender']) && (string) $data['copyToSender'] !== '0';
 
-    if ($subject === '' || trim($body) === '') {
+    if ($subjectTemplate === '' || trim($bodyTemplate) === '') {
         return SlimUtils::renderJSON($response, ['error' => gettext('Subject and message are required')], 400);
     }
 
@@ -232,9 +234,6 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
         return SlimUtils::renderJSON($response, ['error' => gettext('No first timer email addresses matched the selected filters')], 400);
     }
 
-    $bodyHtml = InputUtils::sanitizeHTML($body);
-    $bodyText = InputUtils::sanitizeText(strip_tags($body));
-
     $sent = 0;
     $failed = 0;
     $errors = [];
@@ -244,11 +243,33 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
 
     foreach ($emails as $email) {
         try {
+            $firstName = trim((string) ($emailToFirstName[$email] ?? ''));
+            $tokens = [
+                'toName' => $email,
+                'firstName' => $firstName,
+                'personName' => $firstName,
+            ];
+
+            $subject = trim(InputUtils::sanitizeText(renderFirstTimerTemplate($subjectTemplate, $tokens)));
+            if ($subject === '') {
+                $subject = $subjectTemplate;
+            }
+
+            $renderedBody = renderFirstTimerTemplate($bodyTemplate, $tokens);
+            $hasHtml = $renderedBody !== strip_tags($renderedBody);
+            if ($hasHtml) {
+                $bodyHtml = InputUtils::sanitizeHTML($renderedBody);
+                $bodyText = InputUtils::sanitizeText(strip_tags($renderedBody));
+            } else {
+                $bodyText = InputUtils::sanitizeText($renderedBody);
+                $bodyHtml = formatPlainTextAsHtmlParagraphs($bodyText);
+            }
+
             $emailMessage = new FirstTimerBulkEmail([
                 $email,
             ], $subject, $bodyHtml, $bodyText, [
                 'toName' => $email,
-                'firstName' => $emailToFirstName[$email] ?? '',
+                'firstName' => $firstName,
             ]);
             if ($emailMessage->send()) {
                 $sent++;
@@ -282,9 +303,28 @@ function emailFirstTimers(Request $request, Response $response, array $args): Re
         if ($senderEmail !== '' && filter_var($senderEmail, FILTER_VALIDATE_EMAIL)) {
             $copyRecipient = $senderEmail;
             try {
+                $copyTokens = [
+                    'toName' => gettext('Sender copy'),
+                    'firstName' => gettext('Sender copy'),
+                    'personName' => gettext('Sender copy'),
+                ];
+                $copySubject = trim(InputUtils::sanitizeText(renderFirstTimerTemplate($subjectTemplate, $copyTokens)));
+                if ($copySubject === '') {
+                    $copySubject = $subjectTemplate;
+                }
+                $copyRenderedBody = renderFirstTimerTemplate($bodyTemplate, $copyTokens);
+                $copyHasHtml = $copyRenderedBody !== strip_tags($copyRenderedBody);
+                if ($copyHasHtml) {
+                    $copyBodyHtml = InputUtils::sanitizeHTML($copyRenderedBody);
+                    $copyBodyText = InputUtils::sanitizeText(strip_tags($copyRenderedBody));
+                } else {
+                    $copyBodyText = InputUtils::sanitizeText($copyRenderedBody);
+                    $copyBodyHtml = formatPlainTextAsHtmlParagraphs($copyBodyText);
+                }
+
                 $copyEmail = new FirstTimerBulkEmail([
                     $senderEmail,
-                ], $subject, $bodyHtml, $bodyText, [
+                ], $copySubject, $copyBodyHtml, $copyBodyText, [
                     'toName' => gettext('Sender copy'),
                 ]);
                 if ($copyEmail->send()) {
@@ -399,4 +439,35 @@ function parseFirstTimerBirthDate($value): ?DateTimeInterface
     }
 
     return null;
+}
+
+function renderFirstTimerTemplate(string $template, array $tokens): string
+{
+    $loader = new ArrayLoader(['template' => $template]);
+    $twig = new Environment($loader, ['autoescape' => false]);
+
+    return $twig->render('template', $tokens);
+}
+
+function formatPlainTextAsHtmlParagraphs(string $text): string
+{
+    $normalized = str_replace(["\r\n", "\r"], "\n", trim($text));
+    if ($normalized === '') {
+        return '';
+    }
+
+    $paragraphs = preg_split("/\n{2,}/", $normalized) ?: [];
+    $html = [];
+    foreach ($paragraphs as $paragraph) {
+        $paragraph = trim($paragraph);
+        if ($paragraph === '') {
+            continue;
+        }
+
+        $safeParagraph = InputUtils::escapeHTML($paragraph);
+        $safeParagraph = str_replace("\n", "<br>", $safeParagraph);
+        $html[] = "<p>{$safeParagraph}</p>";
+    }
+
+    return implode("\n\n", $html);
 }
