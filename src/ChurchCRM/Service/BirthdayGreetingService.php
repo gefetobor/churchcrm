@@ -102,9 +102,10 @@ class BirthdayGreetingService
         ];
 
         $subject = $this->renderTemplate(SystemConfig::getValue('sBirthdayGreetingSubject'), $tokens, false);
-        $birthdayMessage = trim((string) ($tokens['birthdayMessage'] ?? ''));
-        $bodyHtml = InputUtils::sanitizeHTML($birthdayMessage);
-        $bodyText = InputUtils::sanitizeText(strip_tags($birthdayMessage));
+        $birthdayMessageTemplate = trim((string) SystemConfig::getValue('sBirthdayGreetingMessage'));
+        $birthdayMessage = $this->renderTemplate($birthdayMessageTemplate, $tokens, false);
+        $bodyText = InputUtils::sanitizeText($birthdayMessage);
+        $bodyHtml = $this->formatPlainTextAsHtmlParagraphs($bodyText);
 
         // Use the same email implementation and rendering flow as First Timer emails
         // to keep SMTP headers/body structure consistent for deliverability.
@@ -183,6 +184,29 @@ class BirthdayGreetingService
         }
 
         return trim(InputUtils::sanitizeText($rendered));
+    }
+
+    private function formatPlainTextAsHtmlParagraphs(string $text): string
+    {
+        $normalized = str_replace(["\r\n", "\r"], "\n", trim($text));
+        if ($normalized === '') {
+            return '';
+        }
+
+        $paragraphs = preg_split("/\n{2,}/", $normalized) ?: [];
+        $html = [];
+        foreach ($paragraphs as $paragraph) {
+            $paragraph = trim($paragraph);
+            if ($paragraph === '') {
+                continue;
+            }
+
+            $safeParagraph = InputUtils::escapeHTML($paragraph);
+            $safeParagraph = str_replace("\n", "<br>", $safeParagraph);
+            $html[] = "<p>{$safeParagraph}</p>";
+        }
+
+        return implode("\n\n", $html);
     }
 
     private function getSystemTimeZone(): \DateTimeZone
