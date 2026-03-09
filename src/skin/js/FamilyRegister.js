@@ -894,6 +894,8 @@
 
     // Initialize with 1 member card
     addMember();
+    // Ensure member last names pick up any prefilled/restored family name on load
+    syncMemberLastNamesWithFamilyName();
 
     // Initialize validators
     initializeFamilyInfoValidator();
@@ -926,6 +928,8 @@
       if (validators["step-family-info"]) {
         validators["step-family-info"].revalidate().then(function (isValid) {
           if (isValid) {
+            // Force sync before entering members step (covers autofill/non-keyboard input paths)
+            syncMemberLastNamesWithFamilyName();
             registrationStepper.next();
           } else {
             // Use notify if available, otherwise fallback to alert for external pages
