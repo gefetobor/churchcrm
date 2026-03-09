@@ -3,7 +3,7 @@
 namespace ChurchCRM\Service;
 
 use ChurchCRM\dto\SystemConfig;
-use ChurchCRM\Emails\notifications\BirthdayGreetingEmail;
+use ChurchCRM\Emails\notifications\FirstTimerBulkEmail;
 use ChurchCRM\model\ChurchCRM\Person;
 use ChurchCRM\model\ChurchCRM\PersonQuery;
 use ChurchCRM\Utils\InputUtils;
@@ -103,10 +103,12 @@ class BirthdayGreetingService
 
         $subject = $this->renderTemplate(SystemConfig::getValue('sBirthdayGreetingSubject'), $tokens, false);
         $birthdayMessage = trim((string) ($tokens['birthdayMessage'] ?? ''));
-        $bodyHtml = nl2br(InputUtils::escapeHTML($birthdayMessage));
-        $bodyText = $birthdayMessage;
+        $bodyHtml = InputUtils::sanitizeHTML($birthdayMessage);
+        $bodyText = InputUtils::sanitizeText(strip_tags($birthdayMessage));
 
-        $email = new BirthdayGreetingEmail([(string) $person->getEmail()], $subject, $bodyHtml, $bodyText, [
+        // Use the same email implementation and rendering flow as First Timer emails
+        // to keep SMTP headers/body structure consistent for deliverability.
+        $email = new FirstTimerBulkEmail([(string) $person->getEmail()], $subject, $bodyHtml, $bodyText, [
             'toName' => InputUtils::sanitizeText($person->getFullName()),
             'firstName' => InputUtils::sanitizeText((string) $person->getFirstName()),
             ...$tokens,
