@@ -235,6 +235,7 @@ class   SystemConfig
                 '                <tr>' . "\n" .
                 '                  <td style="padding:12px 0;">' . "\n" .
                 '                    <p style="margin:6px 0;font-size:16px;"><strong>Event:</strong> {{ eventTitle }}</p>' . "\n" .
+                '                    {% if eventImageUrl %}<p style="margin:10px 0 12px 0;"><img src="{{ eventImageUrl }}" alt="{{ eventImageAlt }}" style="display:block;max-width:100%;height:auto;border-radius:8px;border:1px solid #d8c089;"></p>{% endif %}' . "\n" .
                 '                    {% if eventLocation %}<p style="margin:6px 0;font-size:16px;"><strong>Address:</strong> {{ eventLocation }}</p>{% endif %}' . "\n" .
                 '                    <p style="margin:6px 0;font-size:16px;"><strong>Date &amp; Time:</strong> {{ eventStart }}</p>' . "\n" .
                 '                    {% if eventDescription %}<p style="margin:6px 0;font-size:16px;"><strong>Theme:</strong> {{ eventDescription }}</p>{% endif %}' . "\n" .
@@ -272,7 +273,7 @@ class   SystemConfig
                 '  </table>' . "\n" .
                 '</body>' . "\n" .
                 '</html>',
-                gettext("HTML email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}")),
+                gettext("HTML email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}, {{ eventImageUrl }}, {{ eventImageAlt }}")),
             'sEventReminderTemplateText'           => new ConfigItem(2085, 'sEventReminderTemplateText', 'textarea',
                 'This is a reminder for {{ eventTitle }}.' . "\n" .
                 'Date: {{ eventStart }}' . "\n" .
@@ -280,7 +281,7 @@ class   SystemConfig
                 '{% if eventUrl %}More info: {{ eventUrl }}{% endif %}' . "\n" .
                 '{% if eventDescription %}{{ eventDescription }}{% endif %}' . "\n" .
                 '{% if optOutUrl %}{{ optOutText }}: {{ optOutUrl }}{% endif %}',
-                gettext("Plain text email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}")),
+                gettext("Plain text email template for event reminders.\nAvailable tokens: {{ eventTitle }}, {{ eventStart }}, {{ eventEnd }}, {{ eventLocation }}, {{ eventUrl }}, {{ eventDescription }}, {{ personName }}, {{ reminderType }}, {{ daysBefore }}, {{ optOutUrl }}, {{ optOutText }}, {{ churchLogoUrl }}, {{ eventContactEmail }}, {{ eventImageUrl }}, {{ eventImageAlt }}")),
             'bEventReminderOnUpdate'               => new ConfigItem(2086, 'bEventReminderOnUpdate', 'boolean', '0', gettext('Send reminder when an event is updated (processed by cron)')),
             'sEventReminderLogoUrl'                => new ConfigItem(2087, 'sEventReminderLogoUrl', 'text', '', gettext('Event reminder email logo image URL')),
             'sEventReminderContactEmail'           => new ConfigItem(2090, 'sEventReminderContactEmail', 'text', '', gettext('Event reminder email contact address')),

@@ -38,6 +38,7 @@ class EventReminderService
     private ConnectionInterface $connection;
     private array $locationCache = [];
     private array $optOutTokenCache = [];
+    private array $eventImageCache = [];
 
     public function __construct()
     {
@@ -273,6 +274,8 @@ class EventReminderService
             'churchLogoUrl' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderLogoUrl')),
             'brandLogoUrl' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderLogoUrl')),
             'eventContactEmail' => InputUtils::sanitizeText(SystemConfig::getValue('sEventReminderContactEmail')),
+            'eventImageUrl' => InputUtils::sanitizeText($this->getEventImageUrl($event)),
+            'eventImageAlt' => InputUtils::sanitizeText($this->getEventImageAlt($event)),
         ];
 
         $tokensHtml = $baseTokens;
@@ -282,7 +285,6 @@ class EventReminderService
         $tokensText['eventDescription'] = $eventDescriptionText === '' ? '' : InputUtils::sanitizeText($eventDescriptionText);
 
         $bodyHtml = $this->renderTemplate(SystemConfig::getValue('sEventReminderTemplateHtml'), $tokensHtml, true);
-        $bodyHtml = $this->stripInlineImagesFromBody($bodyHtml);
         $bodyText = $this->renderTemplate(SystemConfig::getValue('sEventReminderTemplateText'), $tokensText, false);
 
         $subject = match ($type) {
@@ -294,11 +296,6 @@ class EventReminderService
         if (!$email->send()) {
             throw new \RuntimeException($email->getError());
         }
-    }
-
-    private function stripInlineImagesFromBody(string $html): string
-    {
-        return preg_replace('/<img\b[^>]*>/i', '', $html) ?? $html;
     }
 
     private function normalizeDescriptionText(string $html): string
@@ -558,6 +555,63 @@ class EventReminderService
         $this->locationCache[$locationId] = $formatted;
 
         return $formatted;
+    }
+
+    private function getEventImageMeta(int $eventId): array
+    {
+        if ($eventId <= 0) {
+            return ['path' => '', 'alt' => ''];
+        }
+
+        if (isset($this->eventImageCache[$eventId])) {
+            return $this->eventImageCache[$eventId];
+        }
+
+        try {
+            $stmt = $this->connection->prepare('SELECT eim_image_path, eim_image_alt FROM event_images_eim WHERE eim_event_id = :eventId LIMIT 1');
+            $stmt->bindValue(':eventId', $eventId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+            $meta = [
+                'path' => (string) ($row['eim_image_path'] ?? ''),
+                'alt' => (string) ($row['eim_image_alt'] ?? ''),
+            ];
+        } catch (\Throwable $e) {
+            LoggerUtils::getAppLogger()->warning('Unable to read event reminder image metadata', [
+                'eventId' => $eventId,
+                'error' => $e->getMessage(),
+            ]);
+            $meta = ['path' => '', 'alt' => ''];
+        }
+        $this->eventImageCache[$eventId] = $meta;
+
+        return $meta;
+    }
+
+    private function getEventImageUrl(Event $event): string
+    {
+        $meta = $this->getEventImageMeta((int) $event->getId());
+        $path = trim((string) ($meta['path'] ?? ''));
+        if ($path === '') {
+            return '';
+        }
+
+        if (preg_match('/^https?:\/\//i', $path)) {
+            return $path;
+        }
+
+        return rtrim((string) SystemURLs::getURL(), '/') . '/' . ltrim($path, '/');
+    }
+
+    private function getEventImageAlt(Event $event): string
+    {
+        $meta = $this->getEventImageMeta((int) $event->getId());
+        $alt = trim((string) ($meta['alt'] ?? ''));
+        if ($alt !== '') {
+            return $alt;
+        }
+
+        return (string) $event->getTitle();
     }
 
 }

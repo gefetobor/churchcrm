@@ -13,6 +13,26 @@ use ChurchCRM\Utils\FileSystemUtils;
 use ChurchCRM\Utils\InputUtils;
 use ChurchCRM\Utils\RedirectUtils;
 
+function sanitizeEmailTemplateHtmlPreservingTwig(string $input): string
+{
+    $tokenMap = [];
+    $index = 0;
+    $protected = preg_replace_callback('/(\{\{.*?\}\}|\{%.*?%\})/s', static function (array $matches) use (&$tokenMap, &$index): string {
+        $placeholder = '__TWIG_TOKEN_' . $index . '__';
+        $tokenMap[$placeholder] = $matches[0];
+        $index++;
+
+        return $placeholder;
+    }, $input);
+
+    $sanitized = InputUtils::sanitizeEmailHTML((string) $protected);
+    if (!empty($tokenMap)) {
+        $sanitized = strtr($sanitized, $tokenMap);
+    }
+
+    return $sanitized;
+}
+
 // Security
 AuthenticationManager::redirectHomeIfNotAdmin();
 
@@ -23,6 +43,13 @@ if (isset($_POST['save'])) {
     $new_value = $_POST['new_value'];
     $type = $_POST['type'];
     $passwordChanged = $_POST['password_changed'] ?? [];
+    $configNameById = [];
+    foreach (SystemConfig::getCategories() as $settings) {
+        foreach ($settings as $settingName) {
+            $configItem = SystemConfig::getConfigItem($settingName);
+            $configNameById[(string) $configItem->getId()] = $settingName;
+        }
+    }
     ksort($type);
     reset($type);
 
@@ -89,7 +116,12 @@ if (isset($_POST['save'])) {
         if ($current_type == 'text' || $current_type == 'textarea' || $current_type == 'password') {
             $value = InputUtils::sanitizeText($new_value[$id]);
         } elseif ($current_type == 'html') {
-            $value = InputUtils::sanitizeHTML($new_value[$id]);
+            $configName = $configNameById[(string) $id] ?? '';
+            if (in_array($configName, ['sEventReminderTemplateHtml', 'sBirthdayGreetingTemplateHtml'], true)) {
+                $value = sanitizeEmailTemplateHtmlPreservingTwig((string) $new_value[$id]);
+            } else {
+                $value = InputUtils::sanitizeHTML($new_value[$id]);
+            }
         } elseif ($current_type == 'number') {
             $value = InputUtils::filterFloat($new_value[$id]);
         } elseif ($current_type == 'date') {

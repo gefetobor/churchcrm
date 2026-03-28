@@ -19,6 +19,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpBadRequestException;
 use Slim\Exception\HttpNotFoundException;
 use Slim\Routing\RouteCollectorProxy;
+use Propel\Runtime\Propel;
 
 $app->group('/events', function (RouteCollectorProxy $group): void {
     $group->get('/', 'getAllEvents');
@@ -52,6 +53,9 @@ function getAllEvents(Request $request, Response $response, array $args): Respon
     $eventsArray = [];
     foreach ($Events as $event) {
         $eventData = $event->toArray();
+        $imageMeta = getEventImageMetaByEventId((int) $event->getId());
+        $eventData['EventImage'] = $imageMeta['imagePath'];
+        $eventData['EventImageAlt'] = $imageMeta['imageAlt'];
         // Add linked groups
         $groups = $event->getGroups();
         $groupsArray = [];
@@ -95,7 +99,12 @@ function getEvent(Request $request, Response $response, $args): Response
     if (empty($Event)) {
         throw new HttpNotFoundException($request);
     }
-    return SlimUtils::renderStringJSON($response, $Event->toJSON());
+    $eventData = $Event->toArray();
+    $imageMeta = getEventImageMetaByEventId((int) $Event->getId());
+    $eventData['EventImage'] = $imageMeta['imagePath'];
+    $eventData['EventImageAlt'] = $imageMeta['imageAlt'];
+
+    return SlimUtils::renderJSON($response, $eventData);
 }
 
 function getEventPrimaryContact(Request $request, Response $response, array $args): Response
@@ -186,6 +195,7 @@ function newEvent(Request $request, Response $response, array $args): Response
     }
     $event->setCalendars($calendars);
     $event->save();
+    saveEventImageMetaFromApiInput((int) $event->getId(), $input);
 
     if ($event->getSendReminders() && SystemConfig::getBooleanValue('bEventReminderOnCreate')) {
         try {
@@ -240,6 +250,7 @@ function updateEvent(Request $request, Response $response, array $args): Respons
     $Event->setCalendars($PinnedCalendars);
 
     $Event->save();
+    saveEventImageMetaFromApiInput((int) $Event->getId(), $input);
 
     if ($Event->getSendReminders() && SystemConfig::getBooleanValue('bEventReminderOnUpdate')) {
         try {
@@ -405,6 +416,85 @@ function hasLocationTextInput(array $input): bool
     return array_key_exists('LocationText', $input)
         || array_key_exists('locationText', $input)
         || array_key_exists('eventLocation', $input);
+}
+
+/**
+ * @return array{imagePath:string,imageAlt:string}
+ */
+function getEventImageMetaByEventId(int $eventId): array
+{
+    $result = ['imagePath' => '', 'imageAlt' => ''];
+    if ($eventId <= 0) {
+        return $result;
+    }
+
+    try {
+        $connection = Propel::getConnection();
+        $stmt = $connection->prepare('SELECT eim_image_path, eim_image_alt FROM event_images_eim WHERE eim_event_id = :eventId LIMIT 1');
+        $stmt->bindValue(':eventId', $eventId, \PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($row) {
+            $result['imagePath'] = (string) ($row['eim_image_path'] ?? '');
+            $result['imageAlt'] = (string) ($row['eim_image_alt'] ?? '');
+        }
+    } catch (Throwable $e) {
+        LoggerUtils::getAppLogger()->warning('Unable to read event image metadata', [
+            'eventId' => $eventId,
+            'error' => $e->getMessage(),
+        ]);
+    }
+
+    return $result;
+}
+
+function saveEventImageMetaFromApiInput(int $eventId, array $input): void
+{
+    if ($eventId <= 0) {
+        return;
+    }
+
+    $remove = !empty($input['RemoveEventImage']) || !empty($input['removeEventImage']);
+    $imagePathRaw = $input['EventImage'] ?? $input['eventImageUrl'] ?? $input['Image'] ?? null;
+    $imageAltRaw = $input['EventImageAlt'] ?? $input['eventImageAlt'] ?? $input['ImageAlt'] ?? null;
+
+    $imagePath = is_string($imagePathRaw) ? trim($imagePathRaw) : '';
+    $imageAlt = is_string($imageAltRaw) ? trim($imageAltRaw) : '';
+
+    try {
+        $connection = Propel::getConnection();
+
+        if ($remove) {
+            $stmt = $connection->prepare('DELETE FROM event_images_eim WHERE eim_event_id = :eventId');
+            $stmt->bindValue(':eventId', $eventId, \PDO::PARAM_INT);
+            $stmt->execute();
+            return;
+        }
+
+        if ($imagePath === '' && $imageAltRaw === null) {
+            return;
+        }
+
+        if ($imagePath !== '' && !str_starts_with($imagePath, '/Images/')) {
+            $imagePath = '';
+        }
+
+        $stmt = $connection->prepare('INSERT INTO event_images_eim (eim_event_id, eim_image_path, eim_image_alt, eim_updated_at)
+            VALUES (:eventId, :imagePath, :imageAlt, NOW())
+            ON DUPLICATE KEY UPDATE
+                eim_image_path = VALUES(eim_image_path),
+                eim_image_alt = VALUES(eim_image_alt),
+                eim_updated_at = NOW()');
+        $stmt->bindValue(':eventId', $eventId, \PDO::PARAM_INT);
+        $stmt->bindValue(':imagePath', InputUtils::sanitizeText($imagePath), \PDO::PARAM_STR);
+        $stmt->bindValue(':imageAlt', InputUtils::sanitizeText($imageAlt), \PDO::PARAM_STR);
+        $stmt->execute();
+    } catch (Throwable $e) {
+        LoggerUtils::getAppLogger()->warning('Unable to save event image metadata', [
+            'eventId' => $eventId,
+            'error' => $e->getMessage(),
+        ]);
+    }
 }
 
 function deleteEvent(Request $request, Response $response, array $args): Response

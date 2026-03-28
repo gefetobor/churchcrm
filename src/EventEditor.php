@@ -31,6 +31,179 @@ require_once __DIR__ . '/Include/Header.php';
 
 $sAction = 'Create Event';
 
+/**
+ * @return array{imagePath:string,imageAlt:string}
+ */
+function getEventImageMeta(int $eventId): array
+{
+    $result = ['imagePath' => '', 'imageAlt' => ''];
+    if ($eventId <= 0) {
+        return $result;
+    }
+
+    $sql = "SELECT eim_image_path, eim_image_alt FROM event_images_eim WHERE eim_event_id = '" . (int) $eventId . "' LIMIT 1";
+    $rs = RunQuery($sql, false);
+    if ($rs && mysqli_num_rows($rs) > 0) {
+        $row = mysqli_fetch_assoc($rs);
+        $result['imagePath'] = (string) ($row['eim_image_path'] ?? '');
+        $result['imageAlt'] = (string) ($row['eim_image_alt'] ?? '');
+    }
+
+    return $result;
+}
+
+function upsertEventImageMeta(int $eventId, string $imagePath, string $imageAlt): void
+{
+    $safePath = mysqli_real_escape_string($GLOBALS['cnInfoCentral'], $imagePath);
+    $safeAlt = mysqli_real_escape_string($GLOBALS['cnInfoCentral'], $imageAlt);
+    $sql = "INSERT INTO event_images_eim (eim_event_id, eim_image_path, eim_image_alt, eim_updated_at)
+            VALUES ('" . (int) $eventId . "', '" . $safePath . "', '" . $safeAlt . "', NOW())
+            ON DUPLICATE KEY UPDATE
+              eim_image_path = VALUES(eim_image_path),
+              eim_image_alt = VALUES(eim_image_alt),
+              eim_updated_at = NOW()";
+    RunQuery($sql, false);
+}
+
+function deleteEventImageMetaAndFile(int $eventId): void
+{
+    $meta = getEventImageMeta($eventId);
+    $imagePath = (string) ($meta['imagePath'] ?? '');
+
+    if ($imagePath !== '' && str_starts_with($imagePath, '/Images/EventReminders/Events/')) {
+        $absolute = SystemURLs::getDocumentRoot() . $imagePath;
+        if (is_file($absolute)) {
+            @unlink($absolute);
+        }
+    }
+
+    $sql = "DELETE FROM event_images_eim WHERE eim_event_id = '" . (int) $eventId . "'";
+    RunQuery($sql, false);
+}
+
+function resizeAndSaveEventImage(string $sourcePath, string $targetPath, string $mime): bool
+{
+    $raw = @file_get_contents($sourcePath);
+    if ($raw === false) {
+        return false;
+    }
+
+    $source = @imagecreatefromstring($raw);
+    if (!$source) {
+        return false;
+    }
+
+    $sourceWidth = (int) imagesx($source);
+    $sourceHeight = (int) imagesy($source);
+    if ($sourceWidth <= 0 || $sourceHeight <= 0) {
+        imagedestroy($source);
+        return false;
+    }
+
+    $maxWidth = 1200;
+    $maxHeight = 900;
+    $scale = min($maxWidth / $sourceWidth, $maxHeight / $sourceHeight, 1);
+    $targetWidth = max(1, (int) floor($sourceWidth * $scale));
+    $targetHeight = max(1, (int) floor($sourceHeight * $scale));
+
+    $target = imagecreatetruecolor($targetWidth, $targetHeight);
+    if ($target === false) {
+        imagedestroy($source);
+        return false;
+    }
+
+    if ($mime === 'image/png' || $mime === 'image/webp') {
+        imagealphablending($target, false);
+        imagesavealpha($target, true);
+        $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+        imagefilledrectangle($target, 0, 0, $targetWidth, $targetHeight, $transparent);
+    }
+
+    $ok = imagecopyresampled($target, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+    if (!$ok) {
+        imagedestroy($target);
+        imagedestroy($source);
+        return false;
+    }
+
+    $saved = false;
+    if ($mime === 'image/jpeg') {
+        $saved = imagejpeg($target, $targetPath, 85);
+    } elseif ($mime === 'image/png') {
+        $saved = imagepng($target, $targetPath, 6);
+    } elseif ($mime === 'image/webp' && function_exists('imagewebp')) {
+        $saved = imagewebp($target, $targetPath, 82);
+    }
+
+    imagedestroy($target);
+    imagedestroy($source);
+
+    return (bool) $saved;
+}
+
+/**
+ * @return array{ok:bool,error:string,imagePath:string,imageAlt:string}
+ */
+function processEventImageUpload(int $eventId, array $upload, string $imageAlt): array
+{
+    $result = ['ok' => true, 'error' => '', 'imagePath' => '', 'imageAlt' => $imageAlt];
+    if ($eventId <= 0 || !isset($upload['error']) || (int) $upload['error'] === UPLOAD_ERR_NO_FILE) {
+        return $result;
+    }
+
+    if ((int) $upload['error'] !== UPLOAD_ERR_OK) {
+        $result['ok'] = false;
+        $result['error'] = gettext('Failed to upload event image');
+        return $result;
+    }
+
+    $maxUploadBytes = min(2 * 1024 * 1024, (int) \ChurchCRM\Service\SystemService::getMaxUploadFileSize(false));
+    if ((int) $upload['size'] > $maxUploadBytes) {
+        $result['ok'] = false;
+        $result['error'] = gettext('Event image exceeds maximum size (2MB)');
+        return $result;
+    }
+
+    $finfo = new \finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($upload['tmp_name']);
+    $extMap = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($extMap[$mime])) {
+        $result['ok'] = false;
+        $result['error'] = gettext('Invalid event image type. Use JPG, PNG, or WEBP');
+        return $result;
+    }
+
+    $ext = $extMap[$mime];
+    $relativeDir = '/Images/EventReminders/Events/' . $eventId;
+    $absoluteDir = SystemURLs::getDocumentRoot() . $relativeDir;
+    if (!is_dir($absoluteDir) && !@mkdir($absoluteDir, 0755, true) && !is_dir($absoluteDir)) {
+        $result['ok'] = false;
+        $result['error'] = gettext('Failed to create event image directory');
+        return $result;
+    }
+
+    foreach (['jpg', 'jpeg', 'png', 'webp'] as $oldExt) {
+        $old = $absoluteDir . '/cover.' . $oldExt;
+        if (is_file($old)) {
+            @unlink($old);
+        }
+    }
+
+    $targetAbsolute = $absoluteDir . '/cover.' . $ext;
+    if (!resizeAndSaveEventImage($upload['tmp_name'], $targetAbsolute, $mime)) {
+        $result['ok'] = false;
+        $result['error'] = gettext('Failed to process event image file');
+        return $result;
+    }
+
+    $result['imagePath'] = $relativeDir . '/cover.' . $ext;
+    return $result;
+}
+
 if (isset($_GET['calendarAction'])) {
     $sAction = 'Edit';
     $sOpp = $_GET['calendarAction'];
@@ -62,6 +235,8 @@ $iLinkedGroupId = 0;
 $bSendReminders = false;
 $bDateError = false;
 $sEventLocationText = '';
+$sEventImagePath = '';
+$sEventImageAlt = '';
 
 if ($sAction === 'Create Event' && !empty($tyid)) {
     // User is coming from the event types screen and thus there
@@ -319,6 +494,9 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
         
         $iEventStatus = $event->getInActive();
         $bSendReminders = (bool) $event->getSendReminders();
+        $imageMeta = getEventImageMeta($iEventID);
+        $sEventImagePath = (string) $imageMeta['imagePath'];
+        $sEventImageAlt = (string) $imageMeta['imageAlt'];
 
         // Get linked group (via EventAudience)
         $linkedGroups = $event->getGroups();
@@ -366,6 +544,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
     }
     $sEventText = $_POST['EventTextInput'];
     $sEventLocationText = InputUtils::legacyFilterInput($_POST['EventLocationText'] ?? '');
+    $sEventImageAlt = InputUtils::sanitizeText($_POST['EventImageAlt'] ?? '');
     if (!isset($_POST['EventStatus'])) {
         $bStatusError = true;
         $iErrors++;
@@ -411,6 +590,7 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
     
     // Get selected linked group (for kiosk/check-in functionality)
     $iLinkedGroupId = isset($_POST['LinkedGroupId']) ? InputUtils::filterInt($_POST['LinkedGroupId']) : 0;
+    $removeEventImage = isset($_POST['EventImageRemove']) && $_POST['EventImageRemove'] === '1';
 
     if ($iErrors === 0) {
         if ($EventExists === 0) {
@@ -430,6 +610,24 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
             $event->reload();
 
             $iEventID = $event->getId();
+
+            if ($removeEventImage) {
+                deleteEventImageMetaAndFile((int) $iEventID);
+                $sEventImagePath = '';
+            } else {
+                $uploadResult = processEventImageUpload((int) $iEventID, $_FILES['EventImageFile'] ?? [], $sEventImageAlt);
+                if (!$uploadResult['ok']) {
+                    $_SESSION['sGlobalMessage'] = $uploadResult['error'];
+                    $_SESSION['sGlobalMessageClass'] = 'warning';
+                } else {
+                    if ($uploadResult['imagePath'] !== '') {
+                        $sEventImagePath = $uploadResult['imagePath'];
+                    }
+                    if ($sEventImagePath !== '' || $sEventImageAlt !== '') {
+                        upsertEventImageMeta((int) $iEventID, $sEventImagePath, $sEventImageAlt);
+                    }
+                }
+            }
 
             if ($bSendReminders && SystemConfig::getBooleanValue('bEventReminderOnCreate')) {
                 try {
@@ -483,6 +681,26 @@ if ($sAction === 'Create Event' && !empty($tyid)) {
                 ->setSendReminders($bSendReminders ? 1 : 0)
                 ->setInActive(InputUtils::legacyFilterInput($iEventStatus));
             $event->save();
+
+            if ($removeEventImage) {
+                deleteEventImageMetaAndFile((int) $iEventID);
+                $sEventImagePath = '';
+            } else {
+                $existingMeta = getEventImageMeta((int) $iEventID);
+                $sEventImagePath = (string) ($existingMeta['imagePath'] ?? '');
+                $uploadResult = processEventImageUpload((int) $iEventID, $_FILES['EventImageFile'] ?? [], $sEventImageAlt);
+                if (!$uploadResult['ok']) {
+                    $_SESSION['sGlobalMessage'] = $uploadResult['error'];
+                    $_SESSION['sGlobalMessageClass'] = 'warning';
+                } else {
+                    if ($uploadResult['imagePath'] !== '') {
+                        $sEventImagePath = $uploadResult['imagePath'];
+                    }
+                    if ($sEventImagePath !== '' || $sEventImageAlt !== '') {
+                        upsertEventImageMeta((int) $iEventID, $sEventImagePath, $sEventImageAlt);
+                    }
+                }
+            }
 
             if ($bSendReminders && SystemConfig::getBooleanValue('bEventReminderOnUpdate')) {
                 try {
@@ -563,7 +781,7 @@ render_event_editor:
     <div class='card-body'>
         <p class="text-muted mb-3"><span class="text-danger">*</span> <?= gettext('Required fields') ?></p>
 
-    <form method="post" action="EventEditor.php" name="EventsEditor">
+    <form method="post" action="EventEditor.php" name="EventsEditor" enctype="multipart/form-data">
         <input type="hidden" name="EventID" value="<?= ($iEventID) ?>">
         <input type="hidden" name="EventExists" value="<?= $EventExists ?>">
 
@@ -616,6 +834,37 @@ render_event_editor:
                     <td class="LabelColumn"><?= gettext('Event Description') ?></td>
                     <td colspan="3" class="TextColumn">
                         <?= getQuillEditorContainer('EventDesc', 'EventDescInput', $sEventDesc, 'form-control', '100px') ?>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="LabelColumn"><?= gettext('Event Image') ?></td>
+                    <td colspan="3" class="TextColumn">
+                        <input type="file"
+                               name="EventImageFile"
+                               accept="image/jpeg,image/png,image/webp"
+                               class="form-control-file">
+                        <small class="form-text text-muted"><?= gettext('Optional cover image for event reminder emails (JPG, PNG, WEBP, max 2MB)') ?></small>
+                        <div class="mt-2">
+                            <label for="EventImageAlt" class="mb-1"><?= gettext('Image Alt Text') ?></label>
+                            <input type="text"
+                                   id="EventImageAlt"
+                                   name="EventImageAlt"
+                                   value="<?= InputUtils::escapeHTML($sEventImageAlt) ?>"
+                                   maxlength="255"
+                                   class="form-control"
+                                   placeholder="<?= gettext('Optional accessible description of the image') ?>">
+                        </div>
+                        <?php if (!empty($sEventImagePath)): ?>
+                            <div class="mt-3">
+                                <img src="<?= SystemURLs::getRootPath() . $sEventImagePath ?>"
+                                     alt="<?= InputUtils::escapeHTML($sEventImageAlt ?: gettext('Event image')) ?>"
+                                     style="max-width: 360px; border-radius: 8px; border: 1px solid #dee2e6;">
+                                <div class="custom-control custom-checkbox mt-2">
+                                    <input type="checkbox" class="custom-control-input" id="EventImageRemove" name="EventImageRemove" value="1">
+                                    <label class="custom-control-label" for="EventImageRemove"><?= gettext('Remove current event image') ?></label>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <tr>
