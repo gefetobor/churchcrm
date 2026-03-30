@@ -5002,16 +5002,16 @@
         },
         {
             "name": "twig/twig",
-            "version": "v3.23.0",
+            "version": "v3.24.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/twigphp/Twig.git",
-                "reference": "a64dc5d2cc7d6cafb9347f6cd802d0d06d0351c9"
+                "reference": "a6769aefb305efef849dc25c9fd1653358c148f0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/twigphp/Twig/zipball/a64dc5d2cc7d6cafb9347f6cd802d0d06d0351c9",
-                "reference": "a64dc5d2cc7d6cafb9347f6cd802d0d06d0351c9",
+                "url": "https://api.github.com/repos/twigphp/Twig/zipball/a6769aefb305efef849dc25c9fd1653358c148f0",
+                "reference": "a6769aefb305efef849dc25c9fd1653358c148f0",
                 "shasum": ""
             },
             "require": {
@@ -5021,7 +5021,8 @@
                 "symfony/polyfill-mbstring": "^1.3"
             },
             "require-dev": {
-                "phpstan/phpstan": "^2.0",
+                "php-cs-fixer/shim": "^3.0@stable",
+                "phpstan/phpstan": "^2.0@stable",
                 "psr/container": "^1.0|^2.0",
                 "symfony/phpunit-bridge": "^5.4.9|^6.4|^7.0"
             },
@@ -5065,7 +5066,7 @@
             ],
             "support": {
                 "issues": "https://github.com/twigphp/Twig/issues",
-                "source": "https://github.com/twigphp/Twig/tree/v3.23.0"
+                "source": "https://github.com/twigphp/Twig/tree/v3.24.0"
             },
             "funding": [
                 {
@@ -5077,7 +5078,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-01-23T21:00:41+00:00"
+            "time": "2026-03-17T21:31:11+00:00"
         },
         {
             "name": "vonage/client",
@@ -5378,11 +5379,11 @@
     "packages-dev": [
         {
             "name": "phpstan/phpstan",
-            "version": "2.1.39",
+            "version": "2.1.44",
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/c6f73a2af4cbcd99c931d0fb8f08548cc0fa8224",
-                "reference": "c6f73a2af4cbcd99c931d0fb8f08548cc0fa8224",
+                "url": "https://api.github.com/repos/phpstan/phpstan/zipball/4a88c083c668b2c364a425c9b3171b2d9ea5d218",
+                "reference": "4a88c083c668b2c364a425c9b3171b2d9ea5d218",
                 "shasum": ""
             },
             "require": {
@@ -5427,25 +5428,25 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-02-11T14:48:56+00:00"
+            "time": "2026-03-25T17:34:21+00:00"
         },
         {
             "name": "rector/rector",
-            "version": "2.3.6",
+            "version": "2.3.9",
             "source": {
                 "type": "git",
                 "url": "https://github.com/rectorphp/rector.git",
-                "reference": "ca9ebb81d280cd362ea39474dabd42679e32ca6b"
+                "reference": "917842143fd9f5331a2adefc214b8d7143bd32c4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rectorphp/rector/zipball/ca9ebb81d280cd362ea39474dabd42679e32ca6b",
-                "reference": "ca9ebb81d280cd362ea39474dabd42679e32ca6b",
+                "url": "https://api.github.com/repos/rectorphp/rector/zipball/917842143fd9f5331a2adefc214b8d7143bd32c4",
+                "reference": "917842143fd9f5331a2adefc214b8d7143bd32c4",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4|^8.0",
-                "phpstan/phpstan": "^2.1.38"
+                "phpstan/phpstan": "^2.1.40"
             },
             "conflict": {
                 "rector/rector-doctrine": "*",
@@ -5479,7 +5480,7 @@
             ],
             "support": {
                 "issues": "https://github.com/rectorphp/rector/issues",
-                "source": "https://github.com/rectorphp/rector/tree/2.3.6"
+                "source": "https://github.com/rectorphp/rector/tree/2.3.9"
             },
             "funding": [
                 {
@@ -5487,7 +5488,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-02-06T14:25:06+00:00"
+            "time": "2026-03-16T09:43:55+00:00"
         },
         {
             "name": "squizlabs/php_codesniffer",
@@ -5595,5 +5596,5 @@
     "platform-overrides": {
         "php": "8.4"
     },
-    "plugin-api-version": "2.6.0"
+    "plugin-api-version": "2.9.0"
 }
