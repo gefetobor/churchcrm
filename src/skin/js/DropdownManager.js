@@ -221,48 +221,56 @@ class DropdownManager {
       $.ajax({
         type: "GET",
         url: getStatesUrl(countryCode),
-      }).done(function (data) {
-        const defaultState = config.stateDefault || "";
-        const existingStateValue = ($(`#${stateFieldId}`).val() || "").toString().trim();
+      })
+        .done(function (data) {
+          const defaultState = config.stateDefault || "";
+          const existingStateValue = ($(`#${stateFieldId}`).val() || "").toString().trim();
 
-        if (Object.keys(data).length > 0) {
-          // Country has states - show dropdown
-          const $select = $(`<select id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}"></select>`);
-          let appliedState = false;
+          if (Object.keys(data).length > 0) {
+            // Country has states - show dropdown
+            const $select = $(
+              `<select id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}"></select>`,
+            );
+            let appliedState = false;
 
-          $.each(data, function (code, name) {
-            const $option = $("<option></option>").val(code).text(name);
-            if (existingStateValue !== "" && (existingStateValue === code || existingStateValue === name)) {
-              $option.prop("selected", true);
-              appliedState = true;
-            } else if (!appliedState && (defaultState === code || defaultState === name)) {
-              $option.prop("selected", true);
-              appliedState = true;
+            $.each(data, function (code, name) {
+              const $option = $("<option></option>").val(code).text(name);
+              if (existingStateValue !== "" && (existingStateValue === code || existingStateValue === name)) {
+                $option.prop("selected", true);
+                appliedState = true;
+              } else if (!appliedState && (defaultState === code || defaultState === name)) {
+                $option.prop("selected", true);
+                appliedState = true;
+              }
+              $select.append($option);
+            });
+
+            if (!appliedState && $select.find("option").length > 0) {
+              $select.find("option").first().prop("selected", true);
             }
-            $select.append($option);
-          });
 
-          if (!appliedState && $select.find("option").length > 0) {
-            $select.find("option").first().prop("selected", true);
+            stateContainer.html($select);
+          } else {
+            // Country has no states - show text input
+            const $input = $(
+              `<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}">`,
+            );
+            if (existingStateValue) {
+              $input.val(existingStateValue);
+            } else if (defaultState) {
+              $input.val(defaultState);
+            }
+            stateContainer.html($input);
           }
-
-          stateContainer.html($select);
-        } else {
-          // Country has no states - show text input
-          const $input = $(`<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${defaultState}">`);
-          if (existingStateValue) {
-            $input.val(existingStateValue);
-          } else if (defaultState) {
-            $input.val(defaultState);
-          }
-          stateContainer.html($input);
-        }
-      }).fail(function () {
-        const $fallbackInput = $(`<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${config.stateDefault || ""}">`);
-        $fallbackInput.val(config.stateDefault || "");
-        $fallbackInput.attr("placeholder", "State / Province");
-        stateContainer.html($fallbackInput);
-      });
+        })
+        .fail(function () {
+          const $fallbackInput = $(
+            `<input type="text" id="${stateFieldId}" name="${stateFieldId}" class="form-control" data-default="${config.stateDefault || ""}">`,
+          );
+          $fallbackInput.val(config.stateDefault || "");
+          $fallbackInput.attr("placeholder", "State / Province");
+          stateContainer.html($fallbackInput);
+        });
     };
 
     const handleCountryChange = function (explicitCountryCode = "") {
@@ -297,7 +305,10 @@ class DropdownManager {
 
     // Keep server-rendered country list and initialize deterministic defaults.
     const defaultCountryCode = resolveDefaultCountryCode(config.systemDefault);
-    if ((countrySelect.val() || "").toString().trim() === "" && countrySelect.find(`option[value="${defaultCountryCode}"]`).length > 0) {
+    if (
+      (countrySelect.val() || "").toString().trim() === "" &&
+      countrySelect.find(`option[value="${defaultCountryCode}"]`).length > 0
+    ) {
       countrySelect.val(defaultCountryCode);
     }
 
