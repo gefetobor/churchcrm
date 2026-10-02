@@ -19,6 +19,30 @@ services:
     volumes:
       - churchcrm_images:/var/www/html/src/Images
 
+  # Runs scheduled jobs (daily birthday notification). Uses the same image as
+  # the web container but does not serve web traffic.
+  churchcrm-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["bash", "/var/www/html/docker/birthday-notification-scheduler.sh"]
+    environment:
+      TZ: ${TZ:-Europe/London}
+      BIRTHDAY_NOTIFICATION_TIME: ${BIRTHDAY_NOTIFICATION_TIME:-08:00}
+      DB_SERVER: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      APP_URL: ${APP_URL}
+      APP_ROOT_PATH: ${APP_ROOT_PATH}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      churchcrm:
+        condition: service_started
+
   mysql:
     image: mysql:8.0.36
     restart: unless-stopped

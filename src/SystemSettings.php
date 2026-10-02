@@ -117,7 +117,7 @@ if (isset($_POST['save'])) {
             $value = InputUtils::sanitizeText($new_value[$id]);
         } elseif ($current_type == 'html') {
             $configName = $configNameById[(string) $id] ?? '';
-            if (in_array($configName, ['sEventReminderTemplateHtml', 'sBirthdayGreetingTemplateHtml'], true)) {
+            if (in_array($configName, ['sEventReminderTemplateHtml', 'sBirthdayGreetingTemplateHtml', 'sBirthdayNotificationTemplateHtml'], true)) {
                 $value = sanitizeEmailTemplateHtmlPreservingTwig((string) $new_value[$id]);
             } else {
                 $value = InputUtils::sanitizeHTML($new_value[$id]);
