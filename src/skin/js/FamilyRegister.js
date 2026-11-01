@@ -426,13 +426,17 @@
 
           $stateContainer.html($select);
         } else {
-          const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">');
+          const $input = $(
+            '<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">',
+          );
           $input.val(existingStateValue);
           $stateContainer.html($input);
         }
       })
       .fail(function () {
-        const $input = $('<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">');
+        const $input = $(
+          '<input type="text" id="familyState" name="familyState" class="form-control" placeholder="County">',
+        );
         $input.val(existingStateValue);
         $stateContainer.html($input);
       });
@@ -1008,6 +1012,5 @@
         console.error("Failed to initialize inputmask:", e);
       }
     });
-
   });
 })();
