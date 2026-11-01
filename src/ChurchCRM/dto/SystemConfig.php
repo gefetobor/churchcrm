@@ -11,6 +11,45 @@ use Monolog\Logger;
 
 class   SystemConfig
 {
+    private const DEFAULT_BIRTHDAY_NOTIFICATION_TEMPLATE = <<<'HTML'
+<div style="font-family:Arial, sans-serif;color:#1b2a4a;">
+  <p style="margin:0 0 6px 0;font-size:20px;font-weight:700;color:#12264b;">
+    {{ count }} {{ count == 1 ? 'birthday' : 'birthdays' }} today
+  </p>
+  <p style="margin:0 0 18px 0;font-size:14px;color:#555555;">{{ date }}</p>
+
+  <p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;">
+    The following {{ count == 1 ? 'person is' : 'people are' }} celebrating a birthday today.
+    Please reach out with a call, a message or a gift to make their day special.
+  </p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:2px solid #d8c089;">
+    <tr>
+      <td style="padding:0;">
+        {% for person in people %}
+        <div style="padding:14px 4px;border-bottom:1px solid #e3e3e3;">
+          <div style="font-size:16px;font-weight:700;color:#12264b;">
+            <a href="{{ person.profileUrl }}" style="color:#12264b;text-decoration:none;">{{ person.fullName }}</a>
+            {% if person.age %}<span style="font-weight:400;color:#555555;"> · turning {{ person.age }}</span>{% endif %}
+          </div>
+          {% if person.familyName %}<div style="font-size:13px;color:#555555;margin-top:4px;">Family: {{ person.familyName }}</div>{% endif %}
+          {% if person.phone %}<div style="font-size:13px;color:#555555;margin-top:2px;">Phone: {{ person.phone }}</div>{% endif %}
+          {% if person.email %}<div style="font-size:13px;color:#555555;margin-top:2px;">Email: <a href="mailto:{{ person.email }}" style="color:#1769c2;">{{ person.email }}</a></div>{% endif %}
+          {% if person.address %}<div style="font-size:13px;color:#555555;margin-top:2px;">Address: {{ person.address }}</div>{% endif %}
+          {% if person.isLeapDayBirthday %}<div style="font-size:12px;color:#8a6d1f;margin-top:4px;">Born on 29 February – celebrated today as this is not a leap year.</div>{% endif %}
+        </div>
+        {% endfor %}
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:20px 0 0 0;font-size:14px;line-height:1.6;">
+    Thank you for helping us celebrate our church family.<br>
+    {{ churchName }}
+  </p>
+</div>
+HTML;
+
     /**
      * @var Config[]|null
      */
@@ -299,6 +338,11 @@ class   SystemConfig
                 '{{ churchName }}',
                 gettext("Plain text birthday greeting template.\nAvailable tokens: {{ churchName }}, {{ personName }}, {{ firstName }}, {{ lastName }}, {{ age }}, {{ birthdayMessage }}, {{ dear }}, {{ confirmSincerely }}")),
             'sBirthdayGreetingMessage'             => new ConfigItem(2095, 'sBirthdayGreetingMessage', 'textarea', 'Wishing you a joyful birthday and a blessed year ahead!', gettext('Default birthday greeting message text')),
+            'bEnableBirthdayNotifications'         => new ConfigItem(2096, 'bEnableBirthdayNotifications', 'boolean', '0', gettext('Enable the daily birthday notification email to admins and the recipients below (processed by cron)')),
+            'bBirthdayNotificationIncludeAdmins'   => new ConfigItem(2097, 'bBirthdayNotificationIncludeAdmins', 'boolean', '1', gettext('Send the birthday notification to all Admin users (uses the email on their person record)')),
+            'sBirthdayNotificationRecipients'      => new ConfigItem(2098, 'sBirthdayNotificationRecipients', 'textarea', '', gettext('Additional email addresses to receive the birthday notification, separated by commas or new lines')),
+            'sBirthdayNotificationSubject'         => new ConfigItem(2099, 'sBirthdayNotificationSubject', 'text', "{{ churchName }}: {{ count }} {{ count == 1 ? 'birthday' : 'birthdays' }} today", gettext("Birthday notification email subject.\nAvailable tokens: {{ churchName }}, {{ date }}, {{ count }}")),
+            'sBirthdayNotificationTemplateHtml'    => new ConfigItem(2100, 'sBirthdayNotificationTemplateHtml', 'html', self::DEFAULT_BIRTHDAY_NOTIFICATION_TEMPLATE, gettext("HTML body of the birthday notification email. Required: no email is sent while this is empty.\nAvailable tokens: {{ churchName }}, {{ date }}, {{ count }}, and {% for person in people %} with person.fullName, person.firstName, person.lastName, person.age, person.familyName, person.phone, person.email, person.address, person.profileUrl, person.isLeapDayBirthday")),
             
             'sNewPersonNotificationRecipientIDs'   => new ConfigItem(2018, 'sNewPersonNotificationRecipientIDs', 'text', '', gettext('Comma Separated list of PersonIDs of people to notify when a new family or person is added')),
             'bSearchIncludePersons'                => new ConfigItem(2019, 'bSearchIncludePersons', 'boolean', '1', gettext('Search People')),
@@ -394,6 +438,7 @@ class   SystemConfig
             gettext('Enabled Features')   => ['bEnabledFinance', 'bEnabledSundaySchool', 'bEnabledEvents', 'bEnabledFundraiser', 'bEnableSelfRegistration','bEnabledEmail', 'bEnableExternalCalendarAPI'],
             gettext('Event Reminders')    => ['bEnableEventReminders', 'bEventReminderOnCreate', 'bEventReminderOnUpdate', 'iEventReminderDaysBefore', 'bEventReminder24Hours', 'sEventReminderTemplateHtml', 'sEventReminderTemplateText', 'sEventReminderLogoUrl', 'sEventReminderContactEmail'],
             gettext('Birthday Greetings') => ['bEnableBirthdayGreetings', 'sBirthdayGreetingSubject', 'sBirthdayGreetingMessage'],
+            gettext('Birthday Notifications') => ['bEnableBirthdayNotifications', 'bBirthdayNotificationIncludeAdmins', 'sBirthdayNotificationRecipients', 'sBirthdayNotificationSubject', 'sBirthdayNotificationTemplateHtml'],
             gettext('Map Settings')       => ['sGeoCoderProvider', 'sGoogleMapsGeocodeKey', 'sGoogleMapsRenderKey', 'sBingMapKey', 'sGMapIcons', 'iMapZoom'],
             gettext('Report Settings')    => ['sQBDTSettings', 'leftX', 'incrementY', 'sTaxReport1', 'sTaxReport2', 'sTaxReport3', 'sTaxSigner', 'sReminder1', 'sReminderSigner', 'sReminderNoPledge', 'sReminderNoPayments', 'sConfirm1', 'sConfirm2', 'sConfirm3', 'sConfirm4', 'sConfirm5', 'sConfirm6', 'sDear', 'sConfirmSincerely', 'sConfirmSigner', 'sPledgeSummary1', 'sPledgeSummary2', 'sDirectoryDisclaimer1', 'sDirectoryDisclaimer2', 'bDirLetterHead', 'sZeroGivers', 'sZeroGivers2', 'sZeroGivers3', 'iPDFOutputType'],
             gettext('Financial Settings') => ['sDepositSlipType', 'iChecksPerDepositForm', 'bDisplayBillCounts', 'bUseScannedChecks', 'bEnableNonDeductible', 'iFYMonth', 'bUseDonationEnvelopes', 'aFinanceQueries'],

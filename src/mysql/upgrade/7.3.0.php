@@ -1,4 +1,11 @@
--- Add first timer registrations table
+<?php
+
+// First timer registrations table and bEventReminderOnUpdate config. Idempotent.
+
+use ChurchCRM\Utils\SchemaUtils;
+use Propel\Runtime\Propel;
+
+SchemaUtils::createTableIfMissing('first_timer_ft', <<<'SQL'
 CREATE TABLE `first_timer_ft` (
   `ft_ID` int(11) NOT NULL auto_increment,
   `ft_FirstName` varchar(50) NOT NULL,
@@ -14,8 +21,9 @@ CREATE TABLE `first_timer_ft` (
   PRIMARY KEY (`ft_ID`),
   KEY `ft_email_idx` (`ft_Email`),
   KEY `ft_promoted_idx` (`ft_PromotedPersonId`)
-) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
+) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1
+SQL);
 
--- Ensure new config exists
-INSERT IGNORE INTO config_cfg (cfg_id, cfg_name, cfg_value)
-VALUES (2086, 'bEventReminderOnUpdate', '0');
+Propel::getConnection()->exec(
+    "INSERT IGNORE INTO config_cfg (cfg_id, cfg_name, cfg_value) VALUES (2086, 'bEventReminderOnUpdate', '0')"
+);

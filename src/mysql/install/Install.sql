@@ -137,6 +137,38 @@ CREATE TABLE `events_event` (
 ) ENGINE=InnoDB CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
 
 --
+-- Table structure for table `event_images_eim`
+--
+
+CREATE TABLE `event_images_eim` (
+  `eim_event_id` INT NOT NULL,
+  `eim_image_path` VARCHAR(255) NULL,
+  `eim_image_alt` VARCHAR(255) NULL,
+  `eim_updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`eim_event_id`),
+  CONSTRAINT `fk_event_images_event`
+    FOREIGN KEY (`eim_event_id`) REFERENCES `events_event` (`event_id`)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `birthday_notification_log`
+--
+
+CREATE TABLE `birthday_notification_log` (
+  `bnl_id` int(11) NOT NULL auto_increment,
+  `bnl_date` date NOT NULL,
+  `bnl_recipient` varchar(255) NOT NULL,
+  `bnl_status` varchar(16) NOT NULL default 'pending',
+  `bnl_error` text,
+  `bnl_sent_at` datetime default NULL,
+  `bnl_created_at` datetime NOT NULL,
+  PRIMARY KEY (`bnl_id`),
+  UNIQUE KEY `uniq_date_recipient` (`bnl_date`,`bnl_recipient`)
+) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci AUTO_INCREMENT=1;
+
+--
 -- Table structure for table `event_reminder_log`
 --
 
